@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "sdk_local_compatibility": "2.177.0",
+  "sdk_live_get_verified": "2.177.0",
+  "sdk_original_live_cycle": "2.152.0",
+  "unit_tests_passed": 14,
+  "automatic_lifecycle_seconds": 32.062,
+  "final_test_sr_state": "CLOSED",
+  "note_portal_rendering_verified": true,
+  "customer_identifiers_included": false,
+  "console_minutes_assumption": 30,
+  "skill_minutes_reference": 5,
+  "saving_percent_rounded_estimate": 83,
+  "console_benchmark_completed": false,
+  "datadog_deployed": false,
+  "opensearch_fine_category_mapping": "unresolved"
+}

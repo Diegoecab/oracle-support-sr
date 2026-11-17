@@ -1,0 +1,16 @@
+{
+  "name": "diego-oci-support",
+  "plugins": [
+    {
+      "name": "oracle-support-sr",
+      "source": {
+        "source": "local",
+        "path": "./plugins/oracle-support-sr"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "oracle-support-sr",
+  "version": "0.2.0",
+  "description": "Manage OCI support requests and readable updates through the official OCI CLI and Python SDK.",
+  "author": {
+    "name": "Diego Cabrera"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Oracle Support SR",
+        "shortDescription": "SRs de OCI por CLI y SDK",
+        "longDescription": "Create, read, update, attach evidence and close selected OCI SRs from Codex or Claude Code. Customer credentials remain local; no background monitor is included.",
+        "developerName": "Diego Cabrera",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": "Use oracle-support-sr to inspect my OCI support requests and prepare the next evidence-based action."
+      }
+    }
+  }
+}

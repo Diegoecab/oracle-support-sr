@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oracle Support SR"
+  short_description: "Gestiona SR de OCI mediante CLI y SDK"
+  default_prompt: "Usa $oracle-support-sr para revisar mis SR de OCI y preparar la siguiente acción con evidencia."
