@@ -1,5 +1,7 @@
 # API workflow and client differences
 
+Since 0.4.0, MANUAL is the default execution mode. The helper emits an `approval_digest` with the offline draft and requires the same `--approval-digest` plus `--execute` after actual user approval. Explicitly authorized AUTO uses global `--mode AUTO` and still requires `--execute`. All command examples below are subject to that mode policy; direct SDK/CLI calls must not bypass it. Read [modes-and-intake.md](modes-and-intake.md). Essential missing facts are resolved from authorized evidence or asked, in both modes; they are never invented.
+
 Authoritative references, checked 2026-11-16:
 
 - [Create a support request](https://docs.oracle.com/en-us/iaas/Content/GSG/support/create-incident.htm)

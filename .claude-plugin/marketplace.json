@@ -1,6 +1,6 @@
 {
   "name": "diego-oci-support",
-  "description": "Piloto privado de Oracle Support SR para crear, consultar y actualizar casos de OCI.",
+  "description": "Oracle Support SR con modos MANUAL y AUTO para crear, consultar y actualizar casos de OCI.",
   "owner": {
     "name": "Diego Cabrera"
   },
@@ -8,7 +8,7 @@
     {
       "name": "oracle-support-sr",
       "source": "./plugins/oracle-support-sr",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "description": "Manage OCI support requests and readable updates through the official OCI CLI and Python SDK."
     }
   ]

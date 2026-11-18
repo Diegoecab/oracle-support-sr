@@ -5,7 +5,7 @@ Revisión: 17/11/2026. Los permisos para gestionar un SR y los permisos para lee
 ## Entorno y autenticación
 
 - Python 3.11 y SDK oficial OCI `oci>=2.177.0,<3` en el intérprete que use el helper. Las pruebas locales pasaron con 2.177.0; el ciclo original en vivo se ejecutó con 2.152.0. El backend CLI es opcional y necesita además OCI CLI.
-- Codex o Claude Code con ejecución local de comandos, almacenamiento de evidencia y conectividad HTTPS hacia los endpoints OCI utilizados. Para instalar desde este repositorio privado, también acceso GitHub y Git autenticado.
+- Codex o Claude Code con ejecución local de comandos, almacenamiento de evidencia y conectividad HTTPS hacia los endpoints OCI utilizados. Para instalar el plugin, Git y acceso HTTPS al repositorio público en GitHub.
 - Perfil OCI con tenancy, usuario, región y API signing key registrada. Configurar la home region real; resolver la clave regional para el cuerpo de creación cuando corresponda. Las credenciales se administran localmente y no están incluidas en el plugin.
 - Tenancy de pago elegible para soporte, identidad provisionada en My Oracle Cloud Support y privilegios en el grupo de soporte del caso. [Configuración de soporte](https://docs.oracle.com/en-us/iaas/Content/GSG/Tasks/usingsupport.htm), [requisitos de creación](https://docs.oracle.com/en-us/iaas/Content/GSG/support/create-incident.htm).
 - Revisar las restricciones documentadas: Support CLI no está soportado en Cloud Shell; algunas llamadas SDK/CLI/API requieren que la tenancy esté suscrita a Phoenix y que se informe correctamente la home region. [Problemas conocidos](https://docs.oracle.com/en-us/iaas/Content/GSG/support/known-issues.htm). La instalación no cambia suscripciones ni políticas automáticamente.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Portable OCI Support helper. Writes require --execute and a tenancy check."""
+"""Portable OCI Support helper. MANUAL is default; writes require explicit execution."""
 import argparse
 import datetime as dt
 import hashlib
@@ -15,6 +15,28 @@ import time
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+
+
+def approval_preview(args, payload):
+    """Bind confirmation to the action, account selectors and exact outgoing data.
+
+    This detects a changed draft. The calling assistant must obtain real user
+    approval; knowing this digest alone does not prove human consent.
+    """
+    scope = {
+        'operation': args.operation, 'key': getattr(args, 'key', None),
+        'expected_tenancy': args.expected_tenancy, 'profile': args.profile,
+        'config_file': str(Path(args.config_file).expanduser().resolve()),
+        'region': args.region, 'domain_id': args.domain_id,
+        'backend': args.backend, 'problem_type': args.problem_type,
+        'legacy_csi': args.legacy_csi, 'payload': payload,
+    }
+    if getattr(args, 'routing_file', None):
+        scope['routing_sha256'] = hashlib.sha256(Path(args.routing_file).read_bytes()).hexdigest()
+    digest = hashlib.sha256(canonical(scope).encode('utf-8')).hexdigest()
+    return {'state': 'draft_only', 'mode': args.mode,
+            'approval_required': args.mode == 'MANUAL',
+            'approval_digest': digest, **scope}
 
 
 def format_note(text, mode='readable'):
@@ -335,6 +357,7 @@ def parser():
     result.add_argument('--cli', default='oci', help='CLI executable path')
     result.add_argument('--legacy-csi', help='Genuine verified CSI for a legacy CLI only')
     result.add_argument('--problem-type', choices=('TECH', 'ACCOUNT'), default='TECH')
+    result.add_argument('--mode', type=str.upper, choices=('MANUAL', 'AUTO'), default='MANUAL', help='MANUAL requires approval of the exact draft; AUTO is only for an explicitly authorized workflow')
     result.add_argument('--evidence-dir', required=True)
     subs = result.add_subparsers(dest='operation', required=True)
     for name in ('preflight', 'list', 'taxonomy', 'get', 'create', 'comment', 'close', 'attach'):
@@ -353,6 +376,7 @@ def parser():
             sub.add_argument('--catalog-file', help='Also save a flattened hierarchy for the agent; a catalog is not routing verification')
         if name in ('create', 'comment', 'close', 'attach'):
             sub.add_argument('--execute', action='store_true')
+            sub.add_argument('--approval-digest', help='Digest of the exact draft approved by the user in MANUAL mode; supplied by the assistant after approval')
             sub.add_argument('--expected-tenancy', required=True)
     return result
 
@@ -361,6 +385,7 @@ def main(argv=None):
     args = parser().parse_args(argv)
     mutation = args.operation in ('create', 'comment', 'close', 'attach')
     payload = None
+    attachment_content = None
     if args.operation == 'create':
         payload = validate_request(json.loads(Path(args.request_file).read_text(encoding='utf-8-sig')))
         if payload['compartmentId'] != args.expected_tenancy:
@@ -372,13 +397,17 @@ def main(argv=None):
         text = format_note(text, args.text_format)
         payload = {'ticket': {'resource': {'item': {'type': 'activity', 'activityType': 'CLOSE' if args.operation == 'close' else 'NOTES', 'comments': text}}}}
     elif args.operation == 'attach':
-        content = Path(args.file).read_bytes()
-        if not content:
+        attachment_content = Path(args.file).read_bytes()
+        if not attachment_content:
             raise ValueError('Empty attachment')
-        payload = {'filename': Path(args.file).name, 'sha256': hashlib.sha256(content).hexdigest(), 'size': len(content)}
-    if mutation and not args.execute:
-        print(json.dumps({'state': 'draft_only', 'operation': args.operation, 'key': getattr(args, 'key', None), 'expected_tenancy': args.expected_tenancy, 'payload': payload}, indent=2, ensure_ascii=True))
-        return 0
+        payload = {'filename': Path(args.file).name, 'sha256': hashlib.sha256(attachment_content).hexdigest(), 'size': len(attachment_content)}
+    preview = approval_preview(args, payload) if mutation else None
+    if mutation:
+        if not args.execute:
+            print(json.dumps(preview, indent=2, ensure_ascii=True))
+            return 0
+        if args.mode == 'MANUAL' and args.approval_digest != preview['approval_digest']:
+            raise ValueError('MANUAL requires user approval of this exact draft and its --approval-digest; missing or changed approval, no write sent')
     service = Support(args)
     if mutation and service.tenancy != args.expected_tenancy:
         raise ValueError('Profile tenancy differs from expected tenancy; no write sent')
@@ -429,10 +458,19 @@ def main(argv=None):
         attempt = path, record
     start = time.monotonic()
     try:
-        result = service.call(args.operation, payload=payload, key=getattr(args, 'key', None), file=getattr(args, 'file', None))
+        if args.operation == 'attach':
+            # Upload the same immutable bytes that were hashed and approved.
+            with tempfile.TemporaryDirectory(prefix='oracle-sr-attachment-') as folder:
+                snapshot = Path(folder) / payload['filename']
+                snapshot.write_bytes(attachment_content)
+                result = service.call(args.operation, payload=payload, key=args.key, file=str(snapshot))
+        else:
+            result = service.call(args.operation, payload=payload, key=getattr(args, 'key', None), file=getattr(args, 'file', None))
     except Exception as exc:
         result = {'error_type': type(exc).__name__, 'message': str(exc)}
-    result.update(operation=args.operation, backend=args.backend, sdk_version=service.oci.__version__, profile=args.profile, region=service.region, at_utc=dt.datetime.now(dt.timezone.utc).isoformat(), elapsed_seconds=round(time.monotonic()-start, 3))
+    result.update(operation=args.operation, backend=args.backend, sdk_version=service.oci.__version__, profile=args.profile, region=service.region, execution_mode=args.mode, at_utc=dt.datetime.now(dt.timezone.utc).isoformat(), elapsed_seconds=round(time.monotonic()-start, 3))
+    if mutation:
+        result['approval'] = {'mode': args.mode, 'draft_sha256': preview['approval_digest'], 'policy': 'EXACT_DRAFT_CONFIRMATION' if args.mode == 'MANUAL' else 'SCOPED_AUTO'}
     if args.operation == 'taxonomy' and args.catalog_file and result.get('status') == 200:
         catalog_path = Path(args.catalog_file)
         catalog_path.parent.mkdir(parents=True, exist_ok=True)

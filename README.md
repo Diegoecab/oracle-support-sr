@@ -1,10 +1,10 @@
 # Oracle Support SR para Codex y Claude Code
 
-Plugin privado de piloto. Un único código de skill y helper Python, con manifiestos para ambos agentes. Creación, consulta, notas con formato, adjuntos y cierre de SRs de OCI mediante el SDK/CLI oficial. Es una herramienta propia, sin aval oficial de Oracle. No incluye credenciales, datos de clientes ni un servicio de monitoreo desplegado.
+Plugin de piloto con código público. Un único código de skill y helper Python, con manifiestos para ambos agentes. Creación, consulta, notas con formato, adjuntos y cierre de SRs de OCI mediante el SDK/CLI oficial. Es una herramienta propia, sin aval oficial de Oracle. No incluye credenciales, datos de clientes ni un servicio de monitoreo desplegado.
 
 ## Instalar
 
-Requisitos previos: acceso de lectura a este repositorio privado, Git autenticado, el cliente CLI elegido en PATH, Python 3.11 y SDK `oci>=2.177.0,<3` en el Python que usará el helper. El plugin se instala con los comandos nativos de cada cliente.
+Requisitos previos: Git y acceso HTTPS a GitHub, el cliente CLI elegido en PATH, Python 3.11 y SDK `oci>=2.177.0,<3` en el Python que usará el helper. El repositorio se puede descargar sin invitación. El plugin se instala con los comandos nativos de cada cliente.
 
 Si el marketplace ya está registrado, instalar es una orden por agente.
 
@@ -20,7 +20,7 @@ Claude Code:
 claude plugin install oracle-support-sr@diego-oci-support --scope user
 ```
 
-La primera vez se registra el catálogo privado, una sola vez en cada cliente. Para Codex:
+La primera vez se registra el catálogo, una sola vez en cada cliente. Para Codex:
 
 ```text
 codex plugin marketplace add Diegoecab/oracle-support-sr
@@ -47,6 +47,14 @@ mis SRs visibles. Mostrá tenancy, región, estado y evidencia. No crees un SR t
 
 Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedades hay?", "Agregá este diagnóstico" o "Cerralo; ya quedó resuelto". La skill reutiliza perfil y recurso del contexto y pregunta por lo relevante que falte. Crear un caso requiere un mapeo de producto/categoría verificado; si falta, conserva el borrador. No se necesita dictar IDs opacos ni una secuencia completa de comandos.
 
+## Modos y aprobación
+
+MANUAL es el modo predeterminado: las consultas y los borradores pueden avanzar, pero antes de cada escritura muestra la acción, cuenta/SR, texto y adjuntos y espera el OK al contenido concreto. Si cambian, se revisa la nueva versión. Una aprobación de ese mismo borrador se reutiliza.
+
+AUTO se elige expresamente para un trabajo definido, por ejemplo: "Usá AUTO para responder este SR con estas comprobaciones y adjuntar el diagnóstico". Ejecuta las acciones autorizadas sin confirmación por envío y vuelve a MANUAL al terminar. Cada sesión nueva comienza en MANUAL. Estos modos no modifican los permisos propios de Codex/Claude ni conceden operaciones sobre infraestructura.
+
+En ambos modos, los datos fundamentales faltantes se preguntan. No se inventan identificadores, resultados, impacto de negocio, entorno, clasificación ni compromisos de atención. Los detalles de presentación pueden resolverse con una opción razonable. [Detalle de modos e información requerida](docs/modos.md).
+
 ## Alcance validado y tiempos
 
 El escenario considera un solo SR con cinco interacciones en total, incluyendo apertura y seguimientos: leer novedades, reunir logs o información adicional, responder y verificar. Con una media supuesta de 30 minutos por interacción en consola y 5 con la skill, el total es de 2 h 30 min frente a 25 min: 2 h 5 min de ahorro estimado, un 83 %. El tiempo de CLI/SDK manual se estima en 15 minutos por interacción, 1 h 15 min para ese mismo caso.
@@ -61,6 +69,7 @@ Se confirmó el producto OpenSearch, pero Backup and Restore no coincidió con e
 
 - [Manual del cliente, HTML sin datos del piloto](docs/manual-cliente.html)
 - [Recorrido por consola y con pedidos naturales](docs/recorrido.md)
+- [Modos MANUAL y AUTO](docs/modos.md)
 - [Producto, subproducto y registro de mapeos verificados](docs/clasificacion.md)
 - [ADB: MCP nativo y SQLcl como fuentes opcionales de evidencia](docs/adb-mcp.md)
 - [Acceso mínimo: SRs y evidencia](docs/requisitos.md)
@@ -72,6 +81,6 @@ Gestionar tickets requiere permisos IAM de tickets más los privilegios del grup
 
 ## Operación y mantenimiento
 
-El helper conserva borradores, respuestas y recibos de escritura en el evidence-dir elegido. Las escrituras necesitan `--execute` y coincidencia de tenancy. No reintenta automáticamente escrituras inciertas: conciliar antes de repetir. Los recibos locales no sustituyen un registro compartido en Functions. Cerrar no elimina el SR; no se identificó una operación pública de borrado.
+El helper conserva respuestas y recibos de escritura en el evidence-dir elegido. Las escrituras necesitan `--execute` y coincidencia de tenancy. MANUAL requiere además el `--approval-digest` del borrador aprobado; el asistente lo pasa solo después del OK real. El digest detecta cambios y no demuestra por sí solo consentimiento humano. AUTO se pasa explícitamente como `--mode AUTO`. No reintenta automáticamente escrituras inciertas: conciliar antes de repetir. Los recibos locales no sustituyen un registro compartido en Functions. Cerrar no elimina el SR; no se identificó una operación pública de borrado.
 
 Las notas nuevas preservan estructura mediante HTML escapado; se verificó su renderizado en My Oracle Support. El API no reescribe comentarios anteriores. Las claves y la configuración OCI permanecen fuera del repositorio. SDK/CLI y comportamiento del portal pueden evolucionar; revisar referencias y validar en el entorno del cliente.

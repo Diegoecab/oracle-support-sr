@@ -16,6 +16,109 @@ REQUEST = {'compartmentId': TENANCY, 'problemType': 'TECH', 'userGroupId': 'fixt
 
 
 class SafetyTests(unittest.TestCase):
+    def draft(self, args):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(sr.main(args), 0)
+        return json.loads(output.getvalue())
+
+    def write_args(self, folder, operation='comment'):
+        path = Path(folder) / ('request.json' if operation == 'create' else 'evidence.txt')
+        path.write_text(json.dumps(REQUEST) if operation == 'create' else 'Verified fixture evidence', encoding='utf-8')
+        args = ['--profile', 'fixture', '--backend', 'cli', '--evidence-dir', folder, operation, '--expected-tenancy', TENANCY]
+        if operation == 'create':
+            args += ['--request-file', str(path)]
+        else:
+            args += ['--key', 'fixture-key', '--file' if operation == 'attach' else '--text-file', str(path)]
+        return args, path
+
+    def test_manual_default_blocks_every_unapproved_write_before_credentials(self):
+        for operation in ('create', 'comment', 'attach', 'close'):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as folder:
+                args, _ = self.write_args(folder, operation)
+                with patch.object(sr, 'Support', side_effect=AssertionError('No credentials before approval')):
+                    with self.assertRaisesRegex(ValueError, 'MANUAL requires user approval'):
+                        sr.main(args + ['--execute'])
+                self.assertFalse((Path(folder) / 'attempts').exists())
+
+    def test_approval_is_bound_to_payload_target_profile_and_region(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, path = self.write_args(folder)
+            approved = self.draft(args)['approval_digest']
+            changed = []
+            for flag, value in (('--key', 'different-sr'), ('--profile', 'other-profile')):
+                new_args = list(args)
+                new_args[new_args.index(flag) + 1] = value
+                changed.append(new_args)
+            changed.append(['--region', 'different-region'] + args)
+            for new_args in changed:
+                with patch.object(sr, 'Support', side_effect=AssertionError('Changed scope')):
+                    with self.assertRaisesRegex(ValueError, 'changed approval'):
+                        sr.main(new_args + ['--execute', '--approval-digest', approved])
+            path.write_text('Changed outgoing note', encoding='utf-8')
+            with patch.object(sr, 'Support', side_effect=AssertionError('Changed payload')):
+                with self.assertRaisesRegex(ValueError, 'changed approval'):
+                    sr.main(args + ['--execute', '--approval-digest', approved])
+
+    def test_manual_exact_approval_allows_only_that_write(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _ = self.write_args(folder)
+            preview = self.draft(args)
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region')
+            fake.oci = SimpleNamespace(__version__='fixture')
+            fake.call.return_value = {'status': 200, 'data': {}}
+            with patch.object(sr, 'Support', return_value=fake):
+                result = self.draft(args + ['--execute', '--approval-digest', preview['approval_digest']])
+            self.assertEqual(result['approval']['mode'], 'MANUAL')
+            self.assertEqual(result['write_state'], 'success')
+            self.assertEqual([call.args[0] for call in fake.call.call_args_list], ['get', 'comment'])
+
+    def test_auto_without_execute_remains_an_offline_draft(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _ = self.write_args(folder)
+            with patch.object(sr, 'Support', side_effect=AssertionError('Still a draft')):
+                result = self.draft(['--mode', 'AUTO'] + args)
+            self.assertEqual(result['state'], 'draft_only')
+            self.assertEqual(result['mode'], 'AUTO')
+
+    def test_auto_executes_a_scoped_note_without_manual_digest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _ = self.write_args(folder)
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region')
+            fake.oci = SimpleNamespace(__version__='fixture')
+            fake.call.return_value = {'status': 200, 'data': {}}
+            with patch.object(sr, 'Support', return_value=fake):
+                result = self.draft(['--mode', 'AUTO'] + args + ['--execute'])
+            self.assertEqual(result['approval']['policy'], 'SCOPED_AUTO')
+            self.assertEqual([call.args[0] for call in fake.call.call_args_list], ['get', 'comment'])
+
+    def test_attachment_upload_uses_the_approved_snapshot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, path = self.write_args(folder, 'attach')
+            approved_bytes = path.read_bytes()
+            preview = self.draft(args)
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region')
+            fake.oci = SimpleNamespace(__version__='fixture')
+            def call(operation, **kwargs):
+                if operation == 'get':
+                    path.write_text('Source file changed during preflight', encoding='utf-8')
+                else:
+                    self.assertEqual(operation, 'attach')
+                    self.assertEqual(Path(kwargs['file']).read_bytes(), approved_bytes)
+                return {'status': 200, 'data': {}}
+            fake.call.side_effect = call
+            with patch.object(sr, 'Support', return_value=fake):
+                result = self.draft(args + ['--execute', '--approval-digest', preview['approval_digest']])
+            self.assertEqual(result['write_state'], 'success')
+
+    def test_changed_attachment_requires_new_approval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, path = self.write_args(folder, 'attach')
+            preview = self.draft(args)
+            path.write_text('Different evidence', encoding='utf-8')
+            with patch.object(sr, 'Support', side_effect=AssertionError('Changed attachment')):
+                with self.assertRaisesRegex(ValueError, 'changed approval'):
+                    sr.main(args + ['--execute', '--approval-digest', preview['approval_digest']])
+
     def routing_fixture(self):
         request = dict(REQUEST, ticket=dict(REQUEST['ticket'], resourceList=[{'region': 'IAD', 'item': {'type': 'tech', 'category': {'categoryKey': 'category'}, 'subCategory': {'subCategoryKey': 'backup'}}}]))
         catalog = [{'service': {'group': 'Group'}, 'services': [{'service': {'service': 'Service'}, 'service_categories': [{'service_category': {'category': 'Category'}, 'sub_categories': [{'sub_category': {'backup': 'Backup and Restore'}}]}]}]}]
@@ -60,7 +163,7 @@ class SafetyTests(unittest.TestCase):
             path.write_text(json.dumps(REQUEST))
             fake = MagicMock(tenancy=TENANCY)
             with patch.object(sr, 'Support', return_value=fake), self.assertRaisesRegex(ValueError, 'VERIFIED mapping'):
-                sr.main(['--profile', 'fixture', '--evidence-dir', folder, 'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
+                sr.main(['--mode', 'AUTO', '--profile', 'fixture', '--evidence-dir', folder, 'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
             fake.call.assert_not_called()
             self.assertFalse((Path(folder) / 'attempts').exists())
 
@@ -101,7 +204,7 @@ class SafetyTests(unittest.TestCase):
             path.write_text(json.dumps(request))
             with patch.object(sr, 'Support', side_effect=AssertionError('Invalid draft must stay local')):
                 with self.assertRaisesRegex(ValueError, 'region key'):
-                    sr.main(['--profile', 'fixture', '--evidence-dir', folder, 'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
+                    sr.main(['--mode', 'AUTO', '--profile', 'fixture', '--evidence-dir', folder, 'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
             self.assertFalse((Path(folder) / 'attempts').exists())
 
     def test_unicode_response_survives_legacy_windows_stdout(self):
@@ -142,7 +245,7 @@ class SafetyTests(unittest.TestCase):
             fake = MagicMock(tenancy='ocid1.tenancy.oc1..other')
             with patch.object(sr, 'Support', return_value=fake):
                 with self.assertRaisesRegex(ValueError, 'Profile tenancy'):
-                    sr.main(['--profile', 'fixture', '--evidence-dir', folder, 'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
+                    sr.main(['--mode', 'AUTO', '--profile', 'fixture', '--evidence-dir', folder, 'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
             fake.call.assert_not_called()
 
     def test_pending_attempt_blocks_a_blind_retry(self):
