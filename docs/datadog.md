@@ -2,6 +2,8 @@
 
 Estado: arquitectura propuesta, sin despliegue ni prueba integrada en Datadog. El plugin interactivo ya gestiona SRs; la automatización de alertas necesita un runtime adicional en OCI Functions. No requiere una VM dedicada ni un MCP.
 
+Para OpenSearch, el origen de la alerta puede ser la recolección [Prometheus exporter -> Datadog Agent/OpenMetrics](opensearch-datadog.md). Ese flujo aporta métricas del cluster y se configura por separado. La conexión está sustentada en los formatos documentados; requiere validar la versión administrada, cobertura de nodos y recepción en el Datadog del cliente. La creación del SR conserva sus controles de aprobación, impacto y enrutamiento.
+
 ## El patrón está documentado
 
 [El blog oficial de Datadog sobre Workflow Automation](https://www.datadoghq.com/blog/automate-end-to-end-processes-with-datadog-workflows/), publicado el 19/10/2022 y actualizado el 05/06/2023, muestra automatización a partir de eventos. La [guía oficial de inicio](https://docs.datadoghq.com/getting_started/workflow_automation/) implementa monitor -> ticket Jira -> aviso Slack con el enlace del ticket. Adaptar ese patrón a un SR de Oracle mediante una [acción HTTP](https://docs.datadoghq.com/actions/workflows/actions/) es nuestra propuesta; el ejemplo oficial no implementa OCI Support.

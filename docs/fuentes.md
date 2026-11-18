@@ -1,6 +1,6 @@
 # Fuentes oficiales y alcance
 
-Revisión: 17/11/2026. Las referencias validan contratos y patrones; el conector Datadog-to-SR sigue propuesto.
+Revisión: 18/11/2026. Las referencias validan contratos y patrones; el conector Datadog-to-SR sigue propuesto.
 
 - [Creación de SR y requisitos del grupo de soporte](https://docs.oracle.com/en-us/iaas/Content/GSG/support/create-incident.htm)
 - [Provisionamiento de la identidad de soporte](https://docs.oracle.com/en-us/iaas/Content/GSG/Tasks/usingsupport.htm)
@@ -43,3 +43,13 @@ Revisión: 17/11/2026. Las referencias validan contratos y patrones; el conector
 - [ADB-S: MCP nativo administrado](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html)
 - [ADB-S MCP: prerrequisitos](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/prerequisites.html)
 - [ADB-S: administración de herramientas integradas](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-tools.html)
+- [OCI OpenSearch: plugin Prometheus y versiones](https://docs.oracle.com/en-us/iaas/Content/search-opensearch/Concepts/supportedplugins.htm)
+- [OCI OpenSearch: conectividad privada](https://docs.oracle.com/en-us/iaas/Content/search-opensearch/Tasks/ingestingociopensearchdata.htm)
+- [OpenSearch: exporter Prometheus, endpoint y cobertura de nodos](https://github.com/opensearch-project/opensearch-prometheus-exporter)
+- [Datadog: integración OpenMetrics](https://docs.datadoghq.com/integrations/openmetrics/)
+- [Datadog: recolección Prometheus desde un host](https://docs.datadoghq.com/integrations/guide/prometheus-host-collection/)
+- [Datadog: ejemplo oficial del check OpenMetrics](https://github.com/DataDog/integrations-core/blob/master/openmetrics/datadog_checks/openmetrics/data/conf.yaml.example)
+- [Datadog: secretos del Agent](https://docs.datadoghq.com/agent/configuration/secrets-management/)
+- [OCI OpenSearch: métricas nativas y namespace](https://docs.oracle.com/en-us/iaas/Content/search-opensearch/ociopensearchmetrics.htm)
+- [Datadog: integración OCI y namespaces publicados](https://docs.datadoghq.com/integrations/oracle-cloud-infrastructure/)
+- [Datadog: alcance de Amazon OpenSearch](https://docs.datadoghq.com/integrations/amazon-es/)

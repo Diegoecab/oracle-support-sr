@@ -1,5 +1,7 @@
 # Service-specific data collection: OpenSearch
 
+For a customer using Datadog, read [opensearch-datadog.md](opensearch-datadog.md) for the documented Prometheus/OpenMetrics path and the proposed integration with SR evidence. Check the actual managed version, private connectivity, read-only monitoring access, full node coverage and metric cardinality before claiming the data is available. Do not enable plugins, change cluster settings, deploy collectors or create monitors as a side effect of collecting an SR draft.
+
 Consult service-specific SRDC guidance when preparing an actual issue. The formal CreateIncident contract, the portal's conditional questionnaire, and the evidence Support needs are different layers; a successful API creation does not prove the diagnostic intake is complete.
 
 ## Verified Oracle guidance

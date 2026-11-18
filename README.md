@@ -74,6 +74,7 @@ Se confirmó el producto OpenSearch, pero Backup and Restore no coincidió con e
 - [ADB: MCP nativo y SQLcl como fuentes opcionales de evidencia](docs/adb-mcp.md)
 - [Acceso mínimo: SRs y evidencia](docs/requisitos.md)
 - [Diseño Datadog -> OCI Functions -> SR -> pager](docs/datadog.md)
+- [Métricas de OCI OpenSearch: Prometheus -> Datadog](docs/opensearch-datadog.md)
 - [Formato de nuestros updates](docs/formato-updates.md)
 - [Fuentes oficiales y blogs](docs/fuentes.md)
 
