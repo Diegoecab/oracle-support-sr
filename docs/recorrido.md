@@ -53,6 +53,8 @@ Abrí un SR por el error de restore de este cluster de OpenSearch.
 
 La skill identifica el recurso, recupera diagnósticos disponibles, propone severidad según el impacto conocido y consulta el catálogo. Usa una receta de clasificación verificada. Si esa receta no está habilitada, deja un borrador y explica qué validación falta; no crea el caso en una clasificación aproximada. El ejemplo OpenSearch/Backup and Restore permanece en ese estado pendiente.
 
+Para validar una ruta nueva, el usuario puede solicitar expresamente un SR de prueba LOW. La skill usa un flujo separado con un plan de un único caso, muestra el alta y el cierre previsto y espera el OK en MANUAL. Comprueba las claves contra el catálogo actual, pero mantiene la clasificación persistida como pendiente hasta contar con evidencia. Si se elige una prueba solo por API y GetIncident no expone Product/Category, informa esa limitación. La prueba no habilita automáticamente el mapeo para incidentes reales. Ver [clasificación y prueba controlada](clasificacion.md).
+
 ### Consultar novedades
 
 ```text

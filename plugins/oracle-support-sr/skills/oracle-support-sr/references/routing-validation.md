@@ -58,7 +58,27 @@ Desde 0.3.0, el helper requiere --routing-file para ejecutar create de tipo TECH
 
 El archivo es una configuración local mantenida por el cliente, no un nuevo campo del API. La skill lo resuelve desde el contexto/configuración autorizada y lo pasa al helper. El usuario no tiene que escribirlo en cada pedido. No marcar VERIFIED automáticamente, falsificar una comprobación, ignorar un vencimiento ni cambiar a raw API/CLI para sortear el control.
 
-La inicialización de recetas requiere evidencia externa comprobable del mismo contrato o una validación controlada aparte, autorizada para ese propósito. El helper entregado no incluye una opción para omitir el control en producción. Una selección correcta en un SR creado por consola no prueba por sí sola el payload equivalente de API.
+La inicialización de recetas requiere evidencia externa comprobable del mismo contrato o una validación controlada autorizada para ese propósito. Una selección correcta en un SR creado por consola no prueba por sí sola el payload equivalente de API.
+
+## Prueba controlada de una ruta nueva
+
+Desde 0.6.0, `test-create` cubre esa validación inicial sin declarar una receta como VERIFIED. Solo se utiliza cuando el usuario solicita expresamente una prueba. `create` conserva el control de recetas verificadas para el uso habitual.
+
+```text
+python scripts/sr.py --profile MI_PERFIL --backend sdk --evidence-dir ./evidencia test-create --request-file prueba.json --test-plan-file plan-prueba.json --expected-tenancy TENANCY_OCID
+```
+
+El primer comando genera un borrador MANUAL, sin red ni credenciales. El envío usa su digest aprobado y `--execute`, como las otras escrituras. El plan debe declarar `schema_version=1`, `purpose=ROUTING_VALIDATION`, `status=CANDIDATE`, `production_use=false`, `max_creations=1`, un `test_id` estable, `tenancy_ocid`, `user_group_id`, `created_at_utc`, `expires_at_utc`, `expected_portal` y una sola entrada `routes` con la ruta completa y sus schemas. Su vigencia máxima es de 24 horas. El request debe ser TECH/LOW, tener título con prefijo `[ROUTING TEST] ` y contener este aviso literal en la descripción:
+
+```text
+Customer-authorized API routing validation; no production incident or infrastructure action is requested.
+```
+
+El flujo admite únicamente las claves de categoría/subcategoría del catálogo, sin contextualData ni issueTypeKey especulativos. Valida usuario/grupo y consulta la taxonomía en vivo antes del envío. Un cambio en la ruta o sus schemas detiene la prueba. Los metadatos schema siguen siendo evidencia: este flujo no convierte ninguno en un selector nuevo ni corrige por sí mismo el backend.
+
+El recibo local se vincula a tenancy/test_id: repetir la misma solicitud exitosa devuelve su recibo; reutilizar ese ID con otro payload se bloquea. Esta protección comparte los límites del registro local; varios equipos deben compartir el registro para coordinarse. Un resultado incierto requiere conciliación antes de cualquier otro intento. No iniciar una serie de pruebas con IDs distintos para eludir esa conciliación.
+
+El resultado mantiene `persisted_classification=NOT_VERIFIED` y no crea una receta de producción. Después se consulta el SR devuelto y se verifica el título/contenido. Si GetIncident solo devuelve actividades, la comprobación de Product/Category requiere otra lectura soportada o el portal. Si el usuario elige continuar solo por API, se informa esa parte pendiente. Un cierre autorizado corresponde únicamente al nuevo SR de prueba, conserva la limitación/discrepancia en su nota y se verifica con un GetIncident posterior. No cerrar el caso que investiga el mapeo ni otro SR existente.
 
 El catálogo puede exportarse en formato simple para la skill:
 

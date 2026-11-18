@@ -17,6 +17,141 @@ REQUEST = {'compartmentId': TENANCY, 'problemType': 'TECH', 'userGroupId': 'fixt
 
 
 class SafetyTests(unittest.TestCase):
+    def routing_test_fixture(self):
+        request, _, catalog = self.routing_schema_fixture()
+        request = copy.deepcopy(request)
+        request['ticket'].update(severity='LOW', title='[ROUTING TEST] Fixture validation', description=sr.ROUTING_TEST_NOTICE)
+        now = dt.datetime.now(dt.timezone.utc)
+        plan = {'schema_version': 1, 'purpose': 'ROUTING_VALIDATION', 'status': 'CANDIDATE', 'production_use': False,
+                'max_creations': 1, 'test_id': 'fixture-routing-001', 'created_at_utc': (now-dt.timedelta(minutes=1)).isoformat(),
+                'expires_at_utc': (now+dt.timedelta(hours=1)).isoformat(), 'tenancy_ocid': TENANCY, 'user_group_id': 'fixture-group',
+                'expected_portal': {'product': 'Expected product', 'category': 'Backup and Restore'},
+                'routes': [dict(sr.flatten_taxonomy(catalog)[0], region_key='IAD')]}
+        return request, plan, catalog
+
+    def routing_test_args(self, folder):
+        request, plan, catalog = self.routing_test_fixture()
+        request_path, plan_path = Path(folder)/'request.json', Path(folder)/'test-plan.json'
+        request_path.write_text(json.dumps(request), encoding='utf-8')
+        plan_path.write_text(json.dumps(plan), encoding='utf-8')
+        args = ['--profile', 'fixture', '--backend', 'sdk', '--evidence-dir', folder, 'test-create', '--request-file', str(request_path), '--test-plan-file', str(plan_path), '--expected-tenancy', TENANCY]
+        return args, request, plan, catalog, plan_path
+
+    def test_routing_test_is_an_offline_candidate_draft(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, request, _, _, _ = self.routing_test_args(folder)
+            with patch.object(sr, 'Support', side_effect=AssertionError('Offline test draft')):
+                preview = self.draft(args)
+            self.assertTrue(preview['approval_required'])
+            self.assertEqual(preview['payload'], request)
+            self.assertIn('test_plan_sha256', preview)
+            self.assertFalse((Path(folder)/'attempts').exists())
+
+    def test_routing_test_manual_approval_is_required_before_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, _, _, _ = self.routing_test_args(folder)
+            with patch.object(sr, 'Support', side_effect=AssertionError('Unapproved test write')):
+                with self.assertRaisesRegex(ValueError, 'MANUAL requires user approval'):
+                    sr.main(args+['--execute'])
+
+    def test_changed_test_plan_invalidates_manual_approval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, plan, _, path = self.routing_test_args(folder)
+            preview = self.draft(args)
+            plan['test_id'] = 'fixture-routing-002'
+            path.write_text(json.dumps(plan), encoding='utf-8')
+            with patch.object(sr, 'Support', side_effect=AssertionError('Changed test scope')):
+                with self.assertRaisesRegex(ValueError, 'changed approval'):
+                    sr.main(args+['--execute', '--approval-digest', preview['approval_digest']])
+
+    def test_routing_test_rejects_urgency_and_missing_validation_notice(self):
+        for change in ({'severity': 'MEDIUM'}, {'title': 'Production outage'}, {'description': 'Help with an outage'}):
+            with self.subTest(change=change):
+                request, plan, _ = self.routing_test_fixture()
+                request['ticket'].update(change)
+                with self.assertRaisesRegex(ValueError, 'requires TECH, LOW'):
+                    sr.validate_test_plan(request, plan)
+
+    def test_routing_test_rejects_guessed_schema_or_issue_type_fields(self):
+        request, plan, _ = self.routing_test_fixture()
+        request['ticket']['contextualData'] = {'schemaName': 'guessed'}
+        with self.assertRaisesRegex(ValueError, 'unreviewed fields'):
+            sr.validate_test_plan(request, plan)
+        request, plan, _ = self.routing_test_fixture()
+        request['ticket']['resourceList'][0]['item']['issueType'] = {'issueTypeKey': 'fixture-selected-leaf-schema'}
+        with self.assertRaisesRegex(ValueError, 'guessed issueTypeKey'):
+            sr.validate_test_plan(request, plan)
+
+    def test_routing_test_rejects_stale_or_unbounded_plans(self):
+        for change in ({'production_use': True}, {'status': 'VERIFIED'}, {'max_creations': 2}, {'max_creations': True}):
+            request, plan, _ = self.routing_test_fixture()
+            plan.update(change)
+            with self.assertRaisesRegex(ValueError, 'single-case CANDIDATE'):
+                sr.validate_test_plan(request, plan)
+        for hours in (-1, 25):
+            request, plan, _ = self.routing_test_fixture()
+            plan['expires_at_utc'] = (dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=hours)).isoformat()
+            with self.assertRaisesRegex(ValueError, 'expire within 24 hours'):
+                sr.validate_test_plan(request, plan)
+
+    def test_routing_test_still_requires_matching_scope_and_catalog(self):
+        request, plan, catalog = self.routing_test_fixture()
+        self.assertEqual(sr.validate_test_plan(request, plan, catalog)['category'], 'Backup and Restore')
+        plan['tenancy_ocid'] = 'ocid1.tenancy.oc1..other'
+        with self.assertRaisesRegex(ValueError, 'tenancy/group'):
+            sr.validate_test_plan(request, plan, catalog)
+        request, plan, catalog = self.routing_test_fixture()
+        catalog[0]['services'][0]['service_categories'][0]['sub_categories'][0]['schema'] = 'changed'
+        with self.assertRaisesRegex(ValueError, 'complete live taxonomy'):
+            sr.validate_test_plan(request, plan, catalog)
+
+    def test_same_test_id_cannot_reserve_another_payload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            identity = {'operation': 'test-create', 'tenancy': TENANCY, 'test_id': 'fixture-test'}
+            path, record, _ = sr.begin_attempt(folder, 'test-create', {'body': 'first'}, identity=identity)
+            sr.finish_attempt(path, record, {'status': 200, 'data': {'key': 'fixture-created'}})
+            _, prior, send = sr.begin_attempt(folder, 'test-create', {'body': 'first'}, identity=identity)
+            self.assertFalse(send)
+            self.assertEqual(prior['result']['data']['key'], 'fixture-created')
+            with self.assertRaisesRegex(RuntimeError, 'already reserved a different request'):
+                sr.begin_attempt(folder, 'test-create', {'body': 'changed'}, identity=identity)
+
+    def test_routing_test_without_returned_key_is_uncertain(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path, record, _ = sr.begin_attempt(folder, 'test-create', REQUEST)
+            self.assertEqual(sr.finish_attempt(path, record, {'status': 200, 'data': {}})['state'], 'uncertain')
+
+    def test_routing_test_uses_live_preflight_catalog_and_create_without_promoting_candidate(self):
+        import oci
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, plan, catalog, _ = self.routing_test_args(folder)
+            preview = self.draft(args)
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region', oci=oci)
+            fake.call.side_effect = [
+                {'status': 200, 'data': {'is_valid_user': True, 'write_permitted_user_group_infos': [{'user_group_id': plan['user_group_id']}]}},
+                {'status': 200, 'data': catalog},
+                {'status': 200, 'data': {'key': 'fixture-new-test'}}]
+            with patch.object(sr, 'Support', return_value=fake):
+                result = self.draft(args+['--execute', '--approval-digest', preview['approval_digest']])
+            self.assertEqual([call.args[0] for call in fake.call.call_args_list], ['preflight', 'taxonomy', 'create'])
+            self.assertEqual(result['routing']['persisted_classification'], 'NOT_VERIFIED')
+            self.assertFalse(result['routing']['production_recipe_created'])
+            self.assertEqual(result['write_state'], 'success')
+
+    def test_routing_test_catalog_failure_never_reserves_or_creates(self):
+        import oci
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, plan, _, _ = self.routing_test_args(folder)
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region', oci=oci)
+            fake.call.side_effect = [
+                {'status': 200, 'data': {'is_valid_user': True, 'write_permitted_user_group_infos': [{'user_group_id': plan['user_group_id']}]}},
+                {'status': 500, 'message': 'Fixture catalog unavailable'}]
+            with patch.object(sr, 'Support', return_value=fake):
+                with self.assertRaisesRegex(ValueError, 'complete live taxonomy'):
+                    sr.main(['--mode', 'AUTO']+args+['--execute'])
+            self.assertEqual([call.args[0] for call in fake.call.call_args_list], ['preflight', 'taxonomy'])
+            self.assertFalse((Path(folder)/'attempts').exists())
+
     def routing_schema_fixture(self):
         request, registry, catalog = self.routing_fixture()
         service = catalog[0]['services'][0]

@@ -8,6 +8,8 @@ Ejemplo: “Prepará la respuesta y mostrámela antes de enviarla”. El usuario
 
 El helper usa `--mode MANUAL` por defecto. Sin `--execute`, devuelve el borrador y su `approval_digest`. La ejecución requiere `--approval-digest` con ese valor exacto. El digest vincula operación, SR, selectores de cuenta/región, payload y, cuando corresponde, bytes del adjunto y receta de clasificación. Detecta cambios del borrador; por sí solo no demuestra que una persona aprobó. El asistente debe obtener el OK real antes de pasarlo. La identidad efectiva y la tenancy se verifican con los controles existentes.
 
+En una prueba de creación y cierre expresamente solicitada, una aprobación puede cubrir el alta mostrada y una nota de cierre también mostrada, condicionada a que GetIncident confirme el nuevo SR y su contenido. El destino del cierre queda limitado a la clave devuelta por esa única prueba; no se extiende a otro caso. Un fallo de verificación o una novedad que vuelva inexacta la nota detiene el cierre y requiere revisar el contenido. `test-create` vincula también el plan de prueba al digest; cambiar sus campos requiere nueva revisión.
+
 ## AUTO, elegido expresamente
 
 Ejemplo: “Usá AUTO para responder este SR con los resultados de estas lecturas y adjuntar el diagnóstico”. La skill puede publicar las acciones autorizadas sin pedir confirmación por cada envío. Mantiene el alcance elegido y vuelve a MANUAL al terminar ese trabajo. AUTO no habilita por sí solo cerrar casos, publicar otros archivos, hacer cambios de infraestructura ni operar sobre cuentas diferentes.

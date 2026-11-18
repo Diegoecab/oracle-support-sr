@@ -12,6 +12,8 @@ import sys
 import tempfile
 import time
 
+ROUTING_TEST_NOTICE = 'Customer-authorized API routing validation; no production incident or infrastructure action is requested.'
+
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
@@ -33,6 +35,8 @@ def approval_preview(args, payload):
     }
     if getattr(args, 'routing_file', None):
         scope['routing_sha256'] = hashlib.sha256(Path(args.routing_file).read_bytes()).hexdigest()
+    if getattr(args, 'test_plan_file', None):
+        scope['test_plan_sha256'] = hashlib.sha256(Path(args.test_plan_file).read_bytes()).hexdigest()
     digest = hashlib.sha256(canonical(scope).encode('utf-8')).hexdigest()
     return {'state': 'draft_only', 'mode': args.mode,
             'approval_required': args.mode == 'MANUAL',
@@ -171,18 +175,74 @@ def validate_routing(request, registry, catalog=None, now=None):
     return expected
 
 
-def begin_attempt(directory, operation, payload):
+def validate_test_plan(request, plan, catalog=None, now=None):
+    """A separately authorized LOW test can establish evidence for a new route.
+
+    A candidate is never represented as a verified production recipe. This
+    path accepts catalog keys only; it cannot infer a schema-to-wire mapping.
+    """
+    validate_request(request)
+    if plan.get('schema_version') != 1 or plan.get('purpose') != 'ROUTING_VALIDATION' or plan.get('status') != 'CANDIDATE' or plan.get('production_use') is not False or type(plan.get('max_creations')) is not int or plan['max_creations'] != 1:
+        raise ValueError('A routing test requires an explicit single-case CANDIDATE plan for nonproduction validation')
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{7,79}', str(plan.get('test_id', ''))):
+        raise ValueError('Routing test requires a stable test_id')
+    if plan.get('tenancy_ocid') != request['compartmentId'] or plan.get('user_group_id') != request.get('userGroupId'):
+        raise ValueError('Routing test tenancy/group does not match the request')
+    now = now or dt.datetime.now(dt.timezone.utc)
+    try:
+        created = dt.datetime.fromisoformat(plan['created_at_utc'].replace('Z', '+00:00'))
+        expires = dt.datetime.fromisoformat(plan['expires_at_utc'].replace('Z', '+00:00'))
+        valid = created.tzinfo is not None and expires.tzinfo is not None and created <= now < expires and expires - created <= dt.timedelta(hours=24)
+    except (KeyError, TypeError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError('Routing test plan must be current and expire within 24 hours')
+    ticket = request['ticket']
+    if request['problemType'] != 'TECH' or ticket['severity'] != 'LOW' or not ticket['title'].startswith('[ROUTING TEST] ') or ROUTING_TEST_NOTICE not in ticket['description']:
+        raise ValueError('Routing test requires TECH, LOW, a [ROUTING TEST] title and the explicit validation notice')
+    if set(request) - {'compartmentId', 'problemType', 'userGroupId', 'ticket'} or set(ticket) - {'severity', 'title', 'description', 'resourceList'}:
+        raise ValueError('Routing test cannot add contextualData, contacts or other unreviewed fields')
+    resources, routes = ticket.get('resourceList') or [], plan.get('routes') or []
+    if len(resources) != 1 or len(routes) != 1:
+        raise ValueError('Routing test supports exactly one resource/route')
+    resource, route = resources[0], routes[0]
+    item = resource.get('item') or {}
+    if set(resource) - {'region', 'item'} or set(item) - {'type', 'category', 'subCategory'}:
+        raise ValueError('Routing test only supports catalog category/subcategory keys; no guessed issueTypeKey')
+    if set(item.get('category') or {}) != {'categoryKey'} or (item.get('subCategory') is not None and set(item['subCategory']) != {'subCategoryKey'}):
+        raise ValueError('Routing test contains unsupported category fields')
+    actual = {'region_key': resource.get('region'), 'category_key': (item.get('category') or {}).get('categoryKey'), 'subcategory_key': (item.get('subCategory') or {}).get('subCategoryKey')}
+    if item.get('type') != 'tech' or not actual['region_key'] or not actual['category_key'] or any(actual[k] != route.get(k) for k in actual):
+        raise ValueError('Routing test request differs from its candidate route')
+    if str(route.get('category_has_subcategory', '')).strip().lower() == 'true' and not actual['subcategory_key']:
+        raise ValueError('Routing test category requires a subcategory')
+    expected = plan.get('expected_portal') or {}
+    if not all(isinstance(expected.get(k), str) and expected[k].strip() for k in ('product', 'category')) or expected['category'] != (route.get('subcategory_label') or route.get('category_label')):
+        raise ValueError('Routing test requires an explicit expected product/category matching the selected catalog label')
+    if catalog is not None:
+        keys = ('service_group_key', 'service_group_label', 'service_key', 'service_label', 'category_key', 'category_label', 'subcategory_key', 'subcategory_label')
+        metadata = ('service_schema', 'category_schema', 'subcategory_schema', 'category_has_subcategory')
+        matches = [row for row in flatten_taxonomy(catalog) if all(route.get(k) == row[k] for k in keys)]
+        if not matches or len({tuple(row[k] for k in metadata) for row in matches}) != 1 or any(route.get(k) != matches[0][k] for k in metadata):
+            raise ValueError('Routing test candidate no longer matches the complete live taxonomy route/schemas')
+    return expected
+
+
+def begin_attempt(directory, operation, payload, identity=None):
     """An exclusive local receipt blocks duplicate or uncertain write retries."""
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(canonical({'operation': operation, 'payload': payload}).encode()).hexdigest()
-    path = directory / (digest + '.json')
+    identity_digest = hashlib.sha256(canonical(identity).encode()).hexdigest() if identity is not None else digest
+    path = directory / (identity_digest + '.json')
     record = {'operation': operation, 'payload_sha256': digest, 'state': 'pending', 'at_utc': dt.datetime.now(dt.timezone.utc).isoformat()}
     try:
         with path.open('x', encoding='utf-8') as output:
             json.dump(record, output, indent=2)
     except FileExistsError:
         previous = json.loads(path.read_text(encoding='utf-8'))
+        if previous['payload_sha256'] != digest:
+            raise RuntimeError('This test_id already reserved a different request; reconcile the existing SR instead of creating another')
         if previous['state'] == 'success':
             return path, previous, False
         raise RuntimeError(f'Existing {previous["state"]} attempt at {path}; reconcile with Oracle before retrying')
@@ -193,7 +253,7 @@ def finish_attempt(path, record, result):
     status = result.get('status')
     if isinstance(status, int) and 200 <= status < 300:
         data = result.get('data')
-        if record['operation'] != 'create' or (isinstance(data, dict) and data.get('key')):
+        if record['operation'] not in ('create', 'test-create') or (isinstance(data, dict) and data.get('key')):
             record['state'] = 'success'
         else:
             record['state'] = 'uncertain'
@@ -373,7 +433,7 @@ def parser():
     result.add_argument('--mode', type=str.upper, choices=('MANUAL', 'AUTO'), default='MANUAL', help='MANUAL requires approval of the exact draft; AUTO is only for an explicitly authorized workflow')
     result.add_argument('--evidence-dir', required=True)
     subs = result.add_subparsers(dest='operation', required=True)
-    for name in ('preflight', 'list', 'taxonomy', 'get', 'create', 'comment', 'close', 'attach'):
+    for name in ('preflight', 'list', 'taxonomy', 'get', 'create', 'test-create', 'comment', 'close', 'attach'):
         sub = subs.add_parser(name)
         if name in ('get', 'comment', 'close', 'attach'):
             sub.add_argument('--key', required=True)
@@ -382,12 +442,15 @@ def parser():
             sub.add_argument('--text-format', choices=('readable', 'verbatim'), default='readable', help='Default: escaped paragraphs, headings and lists for MOS; verbatim preserves the exact supplied body')
         if name == 'attach':
             sub.add_argument('--file', required=True)
-        if name == 'create':
+        if name in ('create', 'test-create'):
             sub.add_argument('--request-file', required=True)
+        if name == 'create':
             sub.add_argument('--routing-file', help='Customer-local VERIFIED routing recipe; required for executing TECH creation')
+        if name == 'test-create':
+            sub.add_argument('--test-plan-file', required=True, help='Explicitly authorized, single-case LOW routing-validation plan; never a verified production route')
         if name == 'taxonomy':
             sub.add_argument('--catalog-file', help='Also save a flattened hierarchy for the agent; a catalog is not routing verification')
-        if name in ('create', 'comment', 'close', 'attach'):
+        if name in ('create', 'test-create', 'comment', 'close', 'attach'):
             sub.add_argument('--execute', action='store_true')
             sub.add_argument('--approval-digest', help='Digest of the exact draft approved by the user in MANUAL mode; supplied by the assistant after approval')
             sub.add_argument('--expected-tenancy', required=True)
@@ -396,13 +459,20 @@ def parser():
 
 def main(argv=None):
     args = parser().parse_args(argv)
-    mutation = args.operation in ('create', 'comment', 'close', 'attach')
+    creates = args.operation in ('create', 'test-create')
+    mutation = creates or args.operation in ('comment', 'close', 'attach')
     payload = None
     attachment_content = None
-    if args.operation == 'create':
+    test_plan = None
+    if creates:
         payload = validate_request(json.loads(Path(args.request_file).read_text(encoding='utf-8-sig')))
         if payload['compartmentId'] != args.expected_tenancy:
             raise ValueError('Draft tenancy differs from expected tenancy')
+        if args.operation == 'test-create':
+            if args.backend != 'sdk':
+                raise ValueError('Routing tests require SDK to preserve structured classification')
+            test_plan = json.loads(Path(args.test_plan_file).read_text(encoding='utf-8-sig'))
+            validate_test_plan(payload, test_plan)
     elif args.operation in ('comment', 'close'):
         text = Path(args.text_file).read_text(encoding='utf-8-sig')
         if not text.strip():
@@ -434,15 +504,15 @@ def main(argv=None):
         # Reject unsupported contracts before reserving a write receipt.
         if args.operation == 'attach' and not hasattr(service.client, 'put_attachment'):
             raise ValueError('Installed SDK has no PutAttachment; upgrade the official oci package')
-        if args.operation == 'create':
+        if creates:
             model_from_wire(service.oci, 'CreateIncident', payload)
         if args.operation in ('comment', 'close'):
             model_from_wire(service.oci, 'UpdateIncident', dict(payload, problemType=args.problem_type))
-    if mutation and args.operation != 'create':
+    if mutation and not creates:
         before = service.call('get', key=args.key)
         if before.get('status') != 200:
             raise ValueError('Cannot verify target SR before write: ' + canonical(before))
-    if mutation and args.operation == 'create':
+    if mutation and creates:
         validation = service.call('preflight')
         data = validation.get('data') or {}
         valid = data.get('is_valid_user', data.get('is-valid-user'))
@@ -459,12 +529,18 @@ def main(argv=None):
             if catalog.get('status') != 200 or catalog.get('next_page'):
                 raise ValueError('Cannot validate a complete live taxonomy; no SR created')
             validate_routing(payload, routing, catalog['data'])
+        if test_plan:
+            catalog = service.call('taxonomy')
+            if catalog.get('status') != 200 or catalog.get('next_page'):
+                raise ValueError('Cannot verify the complete live taxonomy for this routing test; no SR created')
+            validate_test_plan(payload, test_plan, catalog['data'])
     evidence = Path(args.evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
     attempt = None
     if mutation:
         scope = {'tenancy': service.tenancy, 'region': service.region, 'key': getattr(args, 'key', None), 'payload': payload}
-        path, record, send = begin_attempt(evidence / 'attempts', args.operation, scope)
+        test_identity = {'operation': 'test-create', 'tenancy': service.tenancy, 'test_id': test_plan['test_id']} if test_plan else None
+        path, record, send = begin_attempt(evidence / 'attempts', args.operation, scope, identity=test_identity)
         if not send:
             print(json.dumps(dict(record, reused_receipt=True), indent=2))
             return 0
@@ -478,7 +554,7 @@ def main(argv=None):
                 snapshot.write_bytes(attachment_content)
                 result = service.call(args.operation, payload=payload, key=args.key, file=str(snapshot))
         else:
-            result = service.call(args.operation, payload=payload, key=getattr(args, 'key', None), file=getattr(args, 'file', None))
+            result = service.call('create' if test_plan else args.operation, payload=payload, key=getattr(args, 'key', None), file=getattr(args, 'file', None))
     except Exception as exc:
         result = {'error_type': type(exc).__name__, 'message': str(exc)}
     result.update(operation=args.operation, backend=args.backend, sdk_version=service.oci.__version__, profile=args.profile, region=service.region, execution_mode=args.mode, at_utc=dt.datetime.now(dt.timezone.utc).isoformat(), elapsed_seconds=round(time.monotonic()-start, 3))
@@ -491,6 +567,8 @@ def main(argv=None):
         result['catalog_file'] = str(catalog_path)
     if routing:
         result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG', 'expected_portal': routing['expected_portal'], 'current_case_assignment': 'NOT_VERIFIED'}
+    if test_plan:
+        result['routing'] = {'recipe': 'CANDIDATE_CONTROLLED_TEST', 'test_id': test_plan['test_id'], 'live_catalog_match': True, 'expected_portal': test_plan['expected_portal'], 'persisted_classification': 'NOT_VERIFIED', 'current_case_assignment': 'NOT_VERIFIED', 'production_recipe_created': False}
     if attempt:
         receipt = finish_attempt(*attempt, result)
         result['receipt'] = str(attempt[0])
