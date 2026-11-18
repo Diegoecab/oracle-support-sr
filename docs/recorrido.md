@@ -51,7 +51,7 @@ El modo predeterminado es MANUAL: prepara la escritura, muestra el contenido y e
 Abrí un SR por el error de restore de este cluster de OpenSearch.
 ```
 
-La skill identifica el recurso, recupera diagnósticos disponibles, propone severidad según el impacto conocido y consulta el catálogo. Usa una receta de clasificación verificada. Si esa receta no está habilitada, deja un borrador y explica qué validación falta; no crea el caso en una clasificación aproximada. El ejemplo OpenSearch/Backup and Restore permanece en ese estado pendiente.
+La skill identifica el recurso, recupera diagnósticos disponibles, propone severidad según el impacto conocido y consulta el catálogo. Para un producto nuevo puede usar una selección CATALOG_ONLY: muestra el producto/categoría elegidos desde el catálogo actual y pide aprobación manual, incluso si el flujo estaba en AUTO. No exige otro SR previo ni una prueba ficticia. La clasificación persistida se comprueba después, cuando la respuesta del servicio o el portal la expone. Si falta un dato importante o hay ambigüedad, pregunta. Una ruta que ya mostró una clasificación incorrecta permanece bloqueada para incidentes reales hasta resolver esa discrepancia; ese es el estado del ejemplo OpenSearch/Backup and Restore.
 
 Para validar una ruta nueva, el usuario puede solicitar expresamente un SR de prueba LOW. La skill usa un flujo separado con un plan de un único caso, muestra el alta y el cierre previsto y espera el OK en MANUAL. Comprueba las claves contra el catálogo actual, pero mantiene la clasificación persistida como pendiente hasta contar con evidencia. Si se elige una prueba solo por API y GetIncident no expone Product/Category, informa esa limitación. La prueba no habilita automáticamente el mapeo para incidentes reales. Ver [clasificación y prueba controlada](clasificacion.md).
 
@@ -77,7 +77,7 @@ Prepara una nota legible con títulos y listas, muestra los adjuntos y espera el
 Cerralo; ya quedó resuelto.
 ```
 
-Selecciona el SR del contexto y prepara el motivo de cierre. En MANUAL muestra ese borrador y espera el OK; después solicita el cierre y consulta otra vez para confirmar CLOSED. AUTO también requiere que el cierre esté dentro del alcance expresamente autorizado. La verificación es parte del trabajo del asistente y no requiere que el usuario pida cada GET interno.
+Selecciona el SR del contexto y prepara el motivo de cierre. Siempre muestra ese borrador y espera la aprobación manual, incluso en AUTO; un OK exacto ya dado no se vuelve a pedir. Después solicita el cierre y consulta otra vez para confirmar CLOSED. La verificación es parte del trabajo del asistente y no requiere que el usuario pida cada GET interno.
 
 ## Qué verá la persona
 

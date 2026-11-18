@@ -17,6 +17,128 @@ REQUEST = {'compartmentId': TENANCY, 'problemType': 'TECH', 'userGroupId': 'fixt
 
 
 class SafetyTests(unittest.TestCase):
+    def test_raw_response_never_applies_to_writes_or_cli(self):
+        for operation in ('comment', 'close', 'attach', 'create'):
+            with tempfile.TemporaryDirectory() as folder:
+                args,_=self.write_args(folder,operation)
+                args[args.index('cli')]='sdk'
+                with patch.object(sr,'Support',side_effect=AssertionError('Raw write must be blocked')):
+                    with self.assertRaisesRegex(ValueError,'read-only SDK'):
+                        sr.main(['--raw-response']+args)
+        with self.assertRaisesRegex(ValueError,'read-only SDK'):
+            sr.main(['--profile','fixture','--backend','cli','--raw-response','--evidence-dir','unused','get','--key','fixture'])
+
+    def test_raw_read_preserves_unmodeled_fields_and_wire_names(self):
+        with tempfile.TemporaryDirectory() as folder:
+            response={'key':'fixture','serverOnlyField':'retained','ticket':{'resourceList':[{'item':{'type':'tech','category':{'categoryKey':'fixture-category'}}}]}}
+            fake=MagicMock(region='fixture-region',oci=SimpleNamespace(__version__='fixture'))
+            fake.call.return_value={'status':200,'data':response}
+            with patch.object(sr,'Support',return_value=fake):
+                output=self.draft(['--profile','fixture','--raw-response','--evidence-dir',folder,'get','--key','fixture'])
+            self.assertEqual(output['data'],response)
+            self.assertEqual(output['data_format'],'REST_JSON')
+
+    def test_raw_read_uses_sdk_skip_deserialization(self):
+        import oci
+        args=sr.parser().parse_args(['--profile','fixture','--raw-response','--evidence-dir','unused','get','--key','fixture'])
+        with patch.object(oci.config,'from_file',return_value={'tenancy':TENANCY,'user':'fixture-user','region':'fixture-region'}), patch.object(oci.cims,'IncidentClient') as constructor, patch.object(oci.identity,'IdentityClient'):
+            sr.Support(args)
+        self.assertTrue(constructor.call_args.kwargs['skip_deserialization'])
+
+    def test_unclassified_write_operation_is_denied_before_drafting(self):
+        with self.assertRaisesRegex(ValueError, 'no reviewed risk policy'):
+            sr.approval_preview(SimpleNamespace(operation='delete-resource'), {})
+
+    def first_use_fixture(self):
+        request, registry, catalog = self.routing_schema_fixture()
+        registry['status'] = 'CATALOG_ONLY'
+        registry['catalog_evidence'] = {'source': 'ListIncidentResourceTypes/TAXONOMY',
+            'captured_at_utc': registry['verification']['observed_at_utc'], 'valid_until_utc': registry['verification']['valid_until_utc']}
+        registry.pop('verification')
+        registry.pop('expected_portal')
+        return request, registry, catalog
+
+    def test_auto_close_requires_manual_review_before_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _ = self.write_args(folder, 'close')
+            preview = self.draft(['--mode', 'AUTO']+args)
+            self.assertEqual(preview['mode'], 'MANUAL')
+            self.assertEqual(preview['mandatory_review_reason'], 'CASE_CLOSURE')
+            with patch.object(sr, 'Support', side_effect=AssertionError('No automatic closure')):
+                with self.assertRaisesRegex(ValueError, 'CASE_CLOSURE'):
+                    sr.main(['--mode', 'AUTO']+args+['--execute'])
+
+    def test_auto_close_executes_only_the_exact_manually_approved_draft(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _ = self.write_args(folder, 'close')
+            preview = self.draft(['--mode', 'AUTO']+args)
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region', oci=SimpleNamespace(__version__='fixture'))
+            fake.call.return_value = {'status': 200, 'data': {}}
+            with patch.object(sr, 'Support', return_value=fake):
+                result = self.draft(['--mode', 'AUTO']+args+['--execute', '--approval-digest', preview['approval_digest']])
+            self.assertEqual(result['requested_execution_mode'], 'AUTO')
+            self.assertEqual(result['execution_mode'], 'MANUAL')
+            self.assertEqual(result['approval']['policy'], 'EXACT_DRAFT_CONFIRMATION')
+
+    def test_new_product_can_use_catalog_without_a_previous_sr(self):
+        request, registry, catalog = self.first_use_fixture()
+        self.assertEqual(sr.validate_routing(request, registry, catalog), {})
+        self.assertNotIn('verification', registry)
+        self.assertNotIn('expected_portal', registry)
+
+    def test_first_use_requires_review_even_in_auto(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request, registry, _ = self.first_use_fixture()
+            request_path, route_path = Path(folder)/'request.json', Path(folder)/'route.json'
+            request_path.write_text(json.dumps(request), encoding='utf-8')
+            route_path.write_text(json.dumps(registry), encoding='utf-8')
+            args=['--mode','AUTO','--profile','fixture','--evidence-dir',folder,'create','--request-file',str(request_path),'--routing-file',str(route_path),'--expected-tenancy',TENANCY]
+            preview=self.draft(args)
+            self.assertEqual(preview['mandatory_review_reason'], 'FIRST_USE_CATALOG_ROUTE')
+            with patch.object(sr, 'Support', side_effect=AssertionError('Unreviewed new route')):
+                with self.assertRaisesRegex(ValueError, 'FIRST_USE_CATALOG_ROUTE'):
+                    sr.main(args+['--execute'])
+
+    def test_first_use_executes_with_approval_live_validation_and_pending_classification(self):
+        import oci
+        with tempfile.TemporaryDirectory() as folder:
+            request, registry, catalog = self.first_use_fixture()
+            request_path, route_path = Path(folder)/'request.json', Path(folder)/'route.json'
+            request_path.write_text(json.dumps(request), encoding='utf-8')
+            route_path.write_text(json.dumps(registry), encoding='utf-8')
+            args=['--mode','AUTO','--profile','fixture','--evidence-dir',folder,'create','--request-file',str(request_path),'--routing-file',str(route_path),'--expected-tenancy',TENANCY]
+            preview=self.draft(args)
+            fake=MagicMock(tenancy=TENANCY,region='fixture-region',oci=oci)
+            fake.call.side_effect=[{'status':200,'data':{'is_valid_user':True,'write_permitted_user_group_infos':[{'user_group_id':request['userGroupId']}]}},{'status':200,'data':catalog},{'status':200,'data':{'key':'fixture-new-product'}}]
+            with patch.object(sr,'Support',return_value=fake):
+                result=self.draft(args+['--execute','--approval-digest',preview['approval_digest']])
+            self.assertEqual([call.args[0] for call in fake.call.call_args_list],['preflight','taxonomy','create'])
+            self.assertEqual(result['execution_mode'],'MANUAL')
+            self.assertEqual(result['routing']['recipe'],'FIRST_USE_MATCHED_LIVE_CATALOG')
+            self.assertIsNone(result['routing']['expected_portal'])
+            self.assertEqual(result['routing']['persisted_classification'],'NOT_VERIFIED')
+
+    def test_known_mismatch_cannot_be_disguised_as_a_new_product(self):
+        request, registry, catalog=self.first_use_fixture()
+        registry['known_mismatch']=True
+        with self.assertRaisesRegex(ValueError,'Known routing mismatch'):
+            sr.validate_routing(request,registry,catalog)
+        registry.pop('known_mismatch')
+        registry['expected_portal']={'product':'Expected product','category':'Backup and Restore'}
+        registry['verification']={'observed_portal':{'product':'Expected product','category':'Other category'}}
+        with self.assertRaisesRegex(ValueError,'cannot be relabeled'):
+            sr.validate_routing(request,registry,catalog)
+
+    def test_first_use_still_rejects_stale_catalog_evidence_and_schema_drift(self):
+        request,registry,catalog=self.first_use_fixture()
+        registry['catalog_evidence']['valid_until_utc']=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(days=2)).isoformat()
+        with self.assertRaisesRegex(ValueError,'expired'):
+            sr.validate_routing(request,registry,catalog)
+        request,registry,catalog=self.first_use_fixture()
+        catalog[0]['services'][0]['schema']='changed'
+        with self.assertRaisesRegex(ValueError,'schema metadata'):
+            sr.validate_routing(request,registry,catalog)
+
     def routing_test_fixture(self):
         request, _, catalog = self.routing_schema_fixture()
         request = copy.deepcopy(request)

@@ -13,6 +13,7 @@ import tempfile
 import time
 
 ROUTING_TEST_NOTICE = 'Customer-authorized API routing validation; no production incident or infrastructure action is requested.'
+WRITE_REVIEW_RULES = {'create': None, 'test-create': None, 'comment': None, 'attach': None, 'close': 'CASE_CLOSURE'}
 
 
 def canonical(value):
@@ -25,6 +26,8 @@ def approval_preview(args, payload):
     This detects a changed draft. The calling assistant must obtain real user
     approval; knowing this digest alone does not prove human consent.
     """
+    if args.operation not in WRITE_REVIEW_RULES:
+        raise ValueError('Write operation has no reviewed risk policy; no write permitted')
     scope = {
         'operation': args.operation, 'key': getattr(args, 'key', None),
         'expected_tenancy': args.expected_tenancy, 'profile': args.profile,
@@ -33,13 +36,19 @@ def approval_preview(args, payload):
         'backend': args.backend, 'problem_type': args.problem_type,
         'legacy_csi': args.legacy_csi, 'payload': payload,
     }
+    review_reason = WRITE_REVIEW_RULES[args.operation]
     if getattr(args, 'routing_file', None):
         scope['routing_sha256'] = hashlib.sha256(Path(args.routing_file).read_bytes()).hexdigest()
+        registry = json.loads(Path(args.routing_file).read_text(encoding='utf-8-sig'))
+        if args.operation == 'create' and registry.get('status') == 'CATALOG_ONLY':
+            review_reason = 'FIRST_USE_CATALOG_ROUTE'
     if getattr(args, 'test_plan_file', None):
         scope['test_plan_sha256'] = hashlib.sha256(Path(args.test_plan_file).read_bytes()).hexdigest()
     digest = hashlib.sha256(canonical(scope).encode('utf-8')).hexdigest()
-    return {'state': 'draft_only', 'mode': args.mode,
-            'approval_required': args.mode == 'MANUAL',
+    effective_mode = 'MANUAL' if review_reason else args.mode
+    return {'state': 'draft_only', 'mode': effective_mode,
+            'requested_mode': args.mode, 'mandatory_review_reason': review_reason,
+            'approval_required': effective_mode == 'MANUAL',
             'approval_digest': digest, **scope}
 
 
@@ -129,24 +138,36 @@ def flatten_taxonomy(groups):
 
 def validate_routing(request, registry, catalog=None, now=None):
     """Block unproven TECH recipes. This cannot guarantee a backend queue."""
-    if registry.get('schema_version') != 1 or registry.get('status') != 'VERIFIED':
-        raise ValueError('Routing is not VERIFIED; keep a draft and obtain case-side mapping evidence')
+    status = registry.get('status')
+    if registry.get('schema_version') != 1 or status not in ('VERIFIED', 'CATALOG_ONLY'):
+        raise ValueError('Routing is not VERIFIED or an explicit CATALOG_ONLY first-use selection; keep a draft')
+    if registry.get('known_mismatch') is True:
+        raise ValueError('Known routing mismatch remains unresolved; no production SR created')
+    if status == 'CATALOG_ONLY':
+        previous = (registry.get('verification') or {}).get('observed_portal') or {}
+        expected_previous = registry.get('expected_portal') or {}
+        if previous and expected_previous and any(previous.get(k) != expected_previous.get(k) for k in ('product', 'category')):
+            raise ValueError('Known routing mismatch cannot be relabeled as a first-use route')
     if registry.get('tenancy_ocid') != request['compartmentId'] or registry.get('user_group_id') != request.get('userGroupId'):
         raise ValueError('Routing registry tenancy/group does not match the request')
     now = now or dt.datetime.now(dt.timezone.utc)
-    verification = registry.get('verification') or {}
+    verification = (registry.get('verification') if status == 'VERIFIED' else registry.get('catalog_evidence')) or {}
     try:
-        observed_at = dt.datetime.fromisoformat(verification['observed_at_utc'].replace('Z', '+00:00'))
+        observed_at = dt.datetime.fromisoformat(verification['observed_at_utc' if status == 'VERIFIED' else 'captured_at_utc'].replace('Z', '+00:00'))
         valid_until = dt.datetime.fromisoformat(verification['valid_until_utc'].replace('Z', '+00:00'))
         valid = observed_at.tzinfo is not None and valid_until.tzinfo is not None and observed_at <= now < valid_until
+        if status == 'CATALOG_ONLY':
+            valid = valid and valid_until - observed_at <= dt.timedelta(hours=24) and verification.get('source') == 'ListIncidentResourceTypes/TAXONOMY'
     except (KeyError, ValueError, TypeError):
         valid = False
     if not valid:
         raise ValueError('Routing evidence is expired, future-dated or missing a timezone')
     expected = registry.get('expected_portal') or {}
     observed = verification.get('observed_portal') or {}
-    if not all(isinstance(expected.get(k), str) and expected[k].strip() and expected[k] == observed.get(k) for k in ('product', 'category')) or not verification.get('source'):
+    if status == 'VERIFIED' and (not all(isinstance(expected.get(k), str) and expected[k].strip() and expected[k] == observed.get(k) for k in ('product', 'category')) or not verification.get('source')):
         raise ValueError('Routing portal product/category mismatch or missing verification source')
+    if status == 'CATALOG_ONLY' and request['ticket'].get('contextualData') is not None:
+        raise ValueError('First-use routing cannot invent a contextualData contract')
     resources = request['ticket'].get('resourceList') or []
     routes = registry.get('routes') or []
     if not resources or len(resources) != len(routes):
@@ -296,7 +317,7 @@ class Support:
         self.tenancy = self.config['tenancy']
         self.region = args.region or self.config['region']
         cfg = dict(self.config, region=self.region)
-        self.client = oci.cims.IncidentClient(cfg, timeout=(15, 60), retry_strategy=oci.retry.NoneRetryStrategy())
+        self.client = oci.cims.IncidentClient(cfg, timeout=(15, 60), retry_strategy=oci.retry.NoneRetryStrategy(), skip_deserialization=getattr(args, 'raw_response', False))
         self.identity = oci.identity.IdentityClient(cfg, timeout=(15, 45), retry_strategy=oci.retry.NoneRetryStrategy())
         self.common = {'ocid': self.config['user'], 'homeregion': self.region}
         if args.domain_id:
@@ -427,6 +448,7 @@ def parser():
     result.add_argument('--region', help='Support home region; defaults to profile region')
     result.add_argument('--domain-id')
     result.add_argument('--backend', choices=('cli', 'sdk'), default='sdk')
+    result.add_argument('--raw-response', action='store_true', help='SDK reads only: preserve REST JSON field names and unmodeled response fields')
     result.add_argument('--cli', default='oci', help='CLI executable path')
     result.add_argument('--legacy-csi', help='Genuine verified CSI for a legacy CLI only')
     result.add_argument('--problem-type', choices=('TECH', 'ACCOUNT'), default='TECH')
@@ -445,7 +467,7 @@ def parser():
         if name in ('create', 'test-create'):
             sub.add_argument('--request-file', required=True)
         if name == 'create':
-            sub.add_argument('--routing-file', help='Customer-local VERIFIED routing recipe; required for executing TECH creation')
+            sub.add_argument('--routing-file', help='VERIFIED route or explicit CATALOG_ONLY first-use selection; the latter always needs manual approval')
         if name == 'test-create':
             sub.add_argument('--test-plan-file', required=True, help='Explicitly authorized, single-case LOW routing-validation plan; never a verified production route')
         if name == 'taxonomy':
@@ -461,6 +483,8 @@ def main(argv=None):
     args = parser().parse_args(argv)
     creates = args.operation in ('create', 'test-create')
     mutation = creates or args.operation in ('comment', 'close', 'attach')
+    if args.raw_response and (mutation or args.backend != 'sdk'):
+        raise ValueError('--raw-response supports read-only SDK operations; no write sent')
     payload = None
     attachment_content = None
     test_plan = None
@@ -489,15 +513,16 @@ def main(argv=None):
         if not args.execute:
             print(json.dumps(preview, indent=2, ensure_ascii=True))
             return 0
-        if args.mode == 'MANUAL' and args.approval_digest != preview['approval_digest']:
-            raise ValueError('MANUAL requires user approval of this exact draft and its --approval-digest; missing or changed approval, no write sent')
+        if preview['approval_required'] and args.approval_digest != preview['approval_digest']:
+            reason = preview.get('mandatory_review_reason') or 'DEFAULT_MANUAL'
+            raise ValueError('MANUAL requires user approval of this exact draft and its --approval-digest (' + reason + '); missing or changed approval, no write sent')
     service = Support(args)
     if mutation and service.tenancy != args.expected_tenancy:
         raise ValueError('Profile tenancy differs from expected tenancy; no write sent')
     routing = None
     if mutation and args.operation == 'create' and payload['problemType'] == 'TECH':
         if not args.routing_file:
-            raise ValueError('TECH creation requires --routing-file with a VERIFIED mapping; draft retained, no SR created')
+            raise ValueError('TECH creation requires --routing-file with a VERIFIED mapping or explicit CATALOG_ONLY first-use selection; draft retained, no SR created')
         routing = json.loads(Path(args.routing_file).read_text(encoding='utf-8-sig'))
         validate_routing(payload, routing)
     if mutation and args.backend == 'sdk':
@@ -557,16 +582,17 @@ def main(argv=None):
             result = service.call('create' if test_plan else args.operation, payload=payload, key=getattr(args, 'key', None), file=getattr(args, 'file', None))
     except Exception as exc:
         result = {'error_type': type(exc).__name__, 'message': str(exc)}
-    result.update(operation=args.operation, backend=args.backend, sdk_version=service.oci.__version__, profile=args.profile, region=service.region, execution_mode=args.mode, at_utc=dt.datetime.now(dt.timezone.utc).isoformat(), elapsed_seconds=round(time.monotonic()-start, 3))
+    effective_mode = preview['mode'] if mutation else args.mode
+    result.update(operation=args.operation, backend=args.backend, data_format='REST_JSON' if args.raw_response else ('SDK_MODEL' if args.backend == 'sdk' else 'CLI_JSON'), sdk_version=service.oci.__version__, profile=args.profile, region=service.region, execution_mode=effective_mode, requested_execution_mode=args.mode, at_utc=dt.datetime.now(dt.timezone.utc).isoformat(), elapsed_seconds=round(time.monotonic()-start, 3))
     if mutation:
-        result['approval'] = {'mode': args.mode, 'draft_sha256': preview['approval_digest'], 'policy': 'EXACT_DRAFT_CONFIRMATION' if args.mode == 'MANUAL' else 'SCOPED_AUTO'}
+        result['approval'] = {'mode': effective_mode, 'draft_sha256': preview['approval_digest'], 'policy': 'EXACT_DRAFT_CONFIRMATION' if effective_mode == 'MANUAL' else 'SCOPED_AUTO', 'mandatory_review_reason': preview.get('mandatory_review_reason')}
     if args.operation == 'taxonomy' and args.catalog_file and result.get('status') == 200:
         catalog_path = Path(args.catalog_file)
         catalog_path.parent.mkdir(parents=True, exist_ok=True)
         catalog_path.write_text(json.dumps({'catalog_schema_version': 2, 'tenancy_ocid': service.tenancy, 'captured_at_utc': result['at_utc'], 'routing_verified': False, 'routes': flatten_taxonomy(result['data'])}, indent=2, ensure_ascii=False), encoding='utf-8')
         result['catalog_file'] = str(catalog_path)
     if routing:
-        result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG', 'expected_portal': routing['expected_portal'], 'current_case_assignment': 'NOT_VERIFIED'}
+        result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG' if routing['status'] == 'VERIFIED' else 'FIRST_USE_MATCHED_LIVE_CATALOG', 'expected_portal': routing.get('expected_portal'), 'requested_selection': [{k: route.get(k) for k in ('service_group_label', 'service_label', 'category_label', 'subcategory_label')} for route in routing['routes']], 'persisted_classification': 'NOT_VERIFIED', 'current_case_assignment': 'NOT_VERIFIED'}
     if test_plan:
         result['routing'] = {'recipe': 'CANDIDATE_CONTROLLED_TEST', 'test_id': test_plan['test_id'], 'live_catalog_match': True, 'expected_portal': test_plan['expected_portal'], 'persisted_classification': 'NOT_VERIFIED', 'current_case_assignment': 'NOT_VERIFIED', 'production_recipe_created': False}
     if attempt:

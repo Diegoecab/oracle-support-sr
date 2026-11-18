@@ -29,6 +29,8 @@ El ejemplo muestra la forma del contrato, no una receta lista para ejecutar. La 
 
 No convertir el HTTP 200 ni las claves repetidas en una afirmación de que la cola es correcta. GetIncident devolvió actividades, sin el detalle persistido de clasificación necesario para comprobarla. Oracle todavía debe aclarar el mapeo fino; no inventar contextualData ni issueTypeKey para compensarlo. Una asignación interna tampoco es un atributo inmutable que este API garantice.
 
+La ausencia observada no significa que el contrato carezca de campos de respuesta. El modelo oficial [TechSupportItem](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.TechSupportItem.html), accesible mediante Ticket.resourceList[].item, sí define category, subCategory e issueType. La reverificación del 18/11/2026 inspeccionó dos SRs por GetIncident sin deserialización de modelos y por OCI CLI raw-request GET: resourceList contenía únicamente actividades. ListIncidents, consultado también como JSON sin modelos, devolvió incidentResourceType vacío. No se encontró un parámetro documentado expand/include para solicitar esos datos. La conclusión se limita a las respuestas observadas: la clasificación no estaba poblada allí. Su causa necesita aclaración de Oracle; no se debe afirmar que ninguna respuesta de esa API pueda representar clasificación.
+
 Como ejemplo de descubrimiento, la consulta del 17/11/2026 devolvió para OpenSearch: Backup and Restore, Connectivity, Import and Export, Performance y Cluster Provision and Resize. Ese listado ilustra el catálogo disponible en esa consulta, no cinco recetas verificadas. La skill vuelve a consultar el catálogo en el entorno del cliente.
 
 ## Schemas y selección de subcategoría
@@ -48,17 +50,25 @@ El [MCP oficial de Oracle, código de conversión revisado](https://github.com/o
 Usar dos registros distintos:
 
 - Catálogo disponible: obtenerlo de la API con el perfil del cliente. Guardar nombres, claves, jerarquía y fecha. Sirve para descubrir opciones, no para certificar el destino.
-- Recetas verificadas del cliente: relacionar las claves exactas del payload con Product/Category realmente observados en un SR creado por ese contrato, tenancy/grupo, fuente de evidencia, fecha y vencimiento. Solo el estado VERIFIED habilita creación técnica. Las recetas no van embebidas con datos de una cuenta en el plugin distribuido.
+- Selecciones y recetas del cliente: VERIFIED relaciona el payload con Product/Category realmente observados, tenancy/grupo, fuente, fecha y vencimiento. Desde 0.7.0 CATALOG_ONLY permite el primer uso de un producto con selección respaldada por el catálogo vigente y aprobación manual obligatoria. No requiere un SR anterior. Ambas opciones se validan contra la taxonomía en vivo; una discrepancia conocida sigue bloqueada. No se incluyen datos de una cuenta en el plugin distribuido.
 
-La persona describe servicio/recurso, síntoma e impacto. El LLM obtiene los IDs desde el catálogo y busca una receta válida; no le pide que memorice claves. Los aliases humanos ayudan a buscar pero no habilitan un mapeo por similitud de texto. Si la selección es ambigua o el mapeo es desconocido, preparar el borrador y explicar el dato pendiente.
+La persona describe servicio/recurso, síntoma e impacto. El LLM obtiene los IDs desde el catálogo y reutiliza evidencia válida o prepara una selección de primer uso; no le pide que memorice claves. Los aliases humanos ayudan a buscar, pero no sustituyen la selección de la jerarquía real. Si faltan datos importantes o la selección es ambigua, pregunta antes de escribir. Una selección nueva respaldada por el catálogo requiere revisión manual, sin presentarse como clasificación persistida ya comprobada.
 
 ## Qué aplica el control actual
 
-Desde 0.3.0, el helper requiere --routing-file para ejecutar create de tipo TECH. Comprueba coincidencia de tenancy/grupo, región y claves del request, igualdad de producto/categoría esperados y observados en la evidencia, vigencia de esa evidencia y pertenencia de la ruta a la taxonomía consultada en vivo. Un cambio de etiquetas o de jerarquía detiene el alta. Desde 0.5.0 compara además los schemas y la obligatoriedad de la subcategoría. No hay receta técnica preaprobada incluida en el paquete.
+Desde 0.3.0, el helper requiere --routing-file para ejecutar create de tipo TECH. Para VERIFIED comprueba coincidencia de tenancy/grupo, región y claves del request, igualdad de producto/categoría esperados y observados, vigencia de la evidencia y pertenencia a la taxonomía consultada en vivo. Desde 0.5.0 compara también schemas y obligatoriedad de subcategoría. Desde 0.7.0 acepta CATALOG_ONLY para primer uso con catálogo vigente y revisión manual, sin exigir evidencia de un SR previo. No hay rutas de un cliente preaprobadas dentro del paquete.
 
 El archivo es una configuración local mantenida por el cliente, no un nuevo campo del API. La skill lo resuelve desde el contexto/configuración autorizada y lo pasa al helper. El usuario no tiene que escribirlo en cada pedido. No marcar VERIFIED automáticamente, falsificar una comprobación, ignorar un vencimiento ni cambiar a raw API/CLI para sortear el control.
 
 La inicialización de recetas requiere evidencia externa comprobable del mismo contrato o una validación controlada autorizada para ese propósito. Una selección correcta en un SR creado por consola no prueba por sí sola el payload equivalente de API.
+
+## Producto nuevo: primera creación
+
+No es necesario crear otro SR ni realizar un experimento ficticio antes de atender un producto nuevo. El asistente prepara un archivo `schema_version=1`, `status=CATALOG_ONLY`, `tenancy_ocid`, `user_group_id` y `routes` con la selección completa del catálogo, región y schemas. `catalog_evidence` contiene `source=ListIncidentResourceTypes/TAXONOMY`, `captured_at_utc` y `valid_until_utc`; su vigencia máxima es de 24 horas. No contiene una observación de portal inventada ni exige `expected_portal` si el nombre exacto del portal no se conoce.
+
+El mismo `create --routing-file ...` prepara el borrador. Aunque se haya elegido AUTO, el helper exige aprobación manual del contenido y selección exactos antes de cargar credenciales. Al ejecutar consulta usuario/grupo y taxonomía otra vez. El resultado identifica `FIRST_USE_MATCHED_LIVE_CATALOG`, muestra los nombres solicitados y mantiene `persisted_classification=NOT_VERIFIED` hasta la comprobación posterior. No inventa contextualData ni issueTypeKey. Para crear una receta VERIFIED se necesita evidencia real posterior; no se promociona automáticamente.
+
+Si el registro tiene `known_mismatch=true` o conserva una comparación de portal que contradice el destino esperado, cambiar su estado a CATALOG_ONLY no lo habilita. Resolver primero la discrepancia o usar una prueba LOW expresamente autorizada. No eliminar esa evidencia para simular primer uso.
 
 ## Prueba controlada de una ruta nueva
 
@@ -88,7 +98,7 @@ python scripts/sr.py --profile MI_PERFIL --evidence-dir ./evidencia taxonomy --c
 
 El catálogo enriquecido usa `catalog_schema_version=2`. Un archivo de receta conserva schema_version=1, status=VERIFIED, tenancy_ocid, user_group_id, routes y expected_portal. Cada ruta conserva region_key, las claves y etiquetas de la jerarquía exportada, los cuatro metadatos nuevos y, cuando no aplica, subcategory_key/subcategory_label nulos. verification contiene source, observed_at_utc, valid_until_utc y observed_portal.product/category iguales a expected_portal. Las fechas requieren zona horaria. La evidencia debe existir y referirse al contrato usado; esta estructura no otorga validez a una declaración sin evidencia.
 
-Una receta anterior sin esos metadatos debe revisarse si el catálogo actual los publica. No completar su prueba histórica con valores actuales y marcarla verificada automáticamente. Si la clasificación aún no fue comprobada, conservar el borrador y obtener primero el contrato soportado de Oracle. Una consulta a ListIncidentResourceTypes con TECH devolvió INVALID_FORMAT en el entorno revisado; para esta jerarquía se utiliza el valor documentado TAXONOMY, sin inventar otros tipos para buscar issue types.
+Una receta anterior sin esos metadatos debe revisarse si el catálogo actual los publica. No completar su prueba histórica con valores actuales y marcarla verificada automáticamente. Para una ruta nueva existe el flujo CATALOG_ONLY con revisión manual; para una discrepancia conocida o campos cuyo contrato se desconoce, obtener primero la aclaración soportada. Una consulta a ListIncidentResourceTypes con TECH devolvió INVALID_FORMAT en el entorno revisado; para esta jerarquía se utiliza el valor documentado TAXONOMY, sin inventar otros tipos para buscar issue types.
 
 El modelo público admite issueTypeKey, pero el guard actual no lo considera verificado con la taxonomía revisada y bloquea una creación que lo incluya. Esta limitación se documenta para no simular cobertura de un nivel que aún no se ha comprobado.
 

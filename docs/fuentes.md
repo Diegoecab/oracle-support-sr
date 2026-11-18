@@ -57,4 +57,6 @@ Revisión: 18/11/2026. Las referencias validan contratos y patrones; el conector
 - [Support: schema y obligatoriedad de subcategoría](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.SubCategories.html)
 - [Support: schema de servicio](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.Services.html)
 - [Support: contrato de ContextualData](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.ContextualData.html)
+- [Respuesta TechSupportItem: category/subCategory/issueType](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.TechSupportItem.html)
+- [OWASP: alcance y aprobaciones en agentes](https://genai.owasp.org/llmrisk/llm062025-excessive-agency/)
 - [MCP oficial: conversión de payloads revisada](https://github.com/oracle/mcp/blob/cdea374d50c230c221fe4ea306fcd953b3977ef9/src/oci-support-mcp-server/oracle/oci_support_mcp_server/models.py)
