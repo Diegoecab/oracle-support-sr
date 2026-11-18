@@ -48,6 +48,10 @@ Agregar únicamente las lecturas que requiera el incidente y limitarlas al compa
 
 La skill guía al LLM para obtener contexto mediante herramientas y lecturas autorizadas. El helper no incorpora un recolector universal de logs. El impacto de negocio y los compromisos de contacto los aporta el responsable o una política previamente aprobada; no se deducen de un 404 ni de una prioridad de monitor.
 
+Como fuente opcional de evidencia, ADB Serverless dispone de MCP nativo; SQLcl MCP es otra alternativa. Se configuran aparte y requieren identidad, conectividad y permisos para las herramientas o consultas aprobadas. Los privilegios de tickets no los conceden.
+
+Para ejecutar un alta TECH, la versión 0.3.0 exige además una receta local de producto/categoría verificada y vigente, que coincida con el catálogo actual. Si no existe o no coincide, conserva el borrador y bloquea el envío. Es un control de la skill, no un parámetro adicional del API de Oracle.
+
 ## Campos que no deben faltar en el caso
 
 Recurso/OCID cuando aplique, región, compartment conocido, síntoma, ventana UTC, request IDs, resultados observados, impacto, diagnóstico relevante y pedido concreto a Oracle. Seleccionar producto/categoría desde la taxonomía vigente y comprobar el enrutamiento persistido. Para OpenSearch, [SRDC1037](https://support.oracle.com/support/?kmContentId=2864665) agrega componente/subcomponente y evidencia condicional; requiere acceso autenticado.

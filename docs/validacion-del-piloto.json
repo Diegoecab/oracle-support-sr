@@ -1,11 +1,11 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
-  "unit_tests_passed": 14,
-  "automatic_lifecycle_seconds": 32.062,
-  "final_test_sr_state": "CLOSED",
+  "unit_tests_passed": 18,
+  "historical_automatic_lifecycle_seconds": 32.062,
+  "historical_final_test_sr_state": "CLOSED",
   "note_portal_rendering_verified": true,
   "customer_identifiers_included": false,
   "console_minutes_assumption": 30,
@@ -13,5 +13,11 @@
   "saving_percent_rounded_estimate": 83,
   "console_benchmark_completed": false,
   "datadog_deployed": false,
-  "opensearch_fine_category_mapping": "unresolved"
+  "opensearch_fine_category_mapping": "BLOCKED_UNVERIFIED",
+  "verified_customer_routes_shipped": 0,
+  "routing_guard_local_tests_passed": true,
+  "live_taxonomy_export_verified": true,
+  "live_create_with_new_guard_tested": false,
+  "adb_native_mcp_live_connection_tested_in_this_release": false,
+  "sqlcl_mcp_live_connection_tested_in_this_release": false
 }

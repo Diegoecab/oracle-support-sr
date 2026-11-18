@@ -1,0 +1,96 @@
+{
+  "scope": "Historical SDK pilot, before the 0.3.0 routing guard. Selected real stdout fields; customer/SR identifiers and correspondence omitted.",
+  "automatic_seconds": 32.062,
+  "final_state": "CLOSED",
+  "steps": [
+    {
+      "operation": "create",
+      "command_wall_seconds": 8.843,
+      "stdout_selected_fields": {
+        "status": 200,
+        "operation": "create",
+        "backend": "sdk",
+        "sdk_version": "2.152.0",
+        "elapsed_seconds": 6.063,
+        "ticket": {
+          "severity": "LOW",
+          "lifecycle_state": "ACTIVE",
+          "lifecycle_details": "PENDING_WITH_ORACLE"
+        },
+        "write_state": "success"
+      }
+    },
+    {
+      "operation": "get",
+      "command_wall_seconds": 3.172,
+      "stdout_selected_fields": {
+        "status": 200,
+        "operation": "get",
+        "backend": "sdk",
+        "sdk_version": "2.152.0",
+        "elapsed_seconds": 2.032,
+        "ticket": {
+          "severity": "LOW",
+          "lifecycle_state": "ACTIVE",
+          "lifecycle_details": "PENDING_WITH_ORACLE"
+        }
+      }
+    },
+    {
+      "operation": "comment",
+      "command_wall_seconds": 6.985,
+      "stdout_selected_fields": {
+        "status": 200,
+        "operation": "comment",
+        "backend": "sdk",
+        "sdk_version": "2.152.0",
+        "elapsed_seconds": 2.953,
+        "write_state": "success"
+      }
+    },
+    {
+      "operation": "get",
+      "command_wall_seconds": 3.375,
+      "stdout_selected_fields": {
+        "status": 200,
+        "operation": "get",
+        "backend": "sdk",
+        "sdk_version": "2.152.0",
+        "elapsed_seconds": 2.25,
+        "ticket": {
+          "severity": "LOW",
+          "lifecycle_state": "ACTIVE",
+          "lifecycle_details": "PENDING_WITH_ORACLE"
+        }
+      }
+    },
+    {
+      "operation": "close",
+      "command_wall_seconds": 6.078,
+      "stdout_selected_fields": {
+        "status": 200,
+        "operation": "close",
+        "backend": "sdk",
+        "sdk_version": "2.152.0",
+        "elapsed_seconds": 2.547,
+        "write_state": "success"
+      }
+    },
+    {
+      "operation": "get",
+      "command_wall_seconds": 3.609,
+      "stdout_selected_fields": {
+        "status": 200,
+        "operation": "get",
+        "backend": "sdk",
+        "sdk_version": "2.152.0",
+        "elapsed_seconds": 2.469,
+        "ticket": {
+          "severity": "LOW",
+          "lifecycle_state": "CLOSED",
+          "lifecycle_details": "CLOSED"
+        }
+      }
+    }
+  ]
+}

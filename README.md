@@ -4,33 +4,37 @@ Plugin privado de piloto. Un único código de skill y helper Python, con manifi
 
 ## Instalar
 
-Requisitos previos: acceso de lectura a este repositorio privado, Git autenticado, el cliente CLI elegido en PATH, Python 3.11 y SDK `oci>=2.177.0,<3` en el Python que usará el helper. Para instalar dependencias dentro del entorno Python aprobado:
+Requisitos previos: acceso de lectura a este repositorio privado, Git autenticado, el cliente CLI elegido en PATH, Python 3.11 y SDK `oci>=2.177.0,<3` en el Python que usará el helper. El plugin se instala con los comandos nativos de cada cliente.
+
+Si el marketplace ya está registrado, instalar es una orden por agente.
+
+Codex:
 
 ```text
-python -m pip install -r plugins/oracle-support-sr/skills/oracle-support-sr/requirements.txt
-```
-
-Después de descargar/descomprimir el repositorio, la instalación en ambos agentes se ejecuta con una línea:
-
-```text
-python install.py --agent both
-```
-
-También acepta `--agent codex`, `--agent claude` y `--dry-run`. Usa los instaladores nativos y no modifica credenciales ni permisos OCI. La primera autenticación, la asignación de privilegios y la instalación de dependencias son pasos previos; no se resuelven con una única orden de plugin.
-
-Alternativa nativa Codex:
-
-```text
-codex plugin marketplace add Diegoecab/oracle-support-sr
 codex plugin add oracle-support-sr@diego-oci-support
 ```
 
-Alternativa nativa Claude Code:
+Claude Code:
+
+```text
+claude plugin install oracle-support-sr@diego-oci-support --scope user
+```
+
+La primera vez se registra el catálogo privado, una sola vez en cada cliente. Para Codex:
+
+```text
+codex plugin marketplace add Diegoecab/oracle-support-sr
+```
+
+Para Claude:
 
 ```text
 claude plugin marketplace add Diegoecab/oracle-support-sr
-claude plugin install oracle-support-sr@diego-oci-support --scope user
 ```
+
+En Claude Code 2.1.292 o posterior, el comando de shell también permite registrar e instalar juntos: `claude plugin install oracle-support-sr --marketplace Diegoecab/oracle-support-sr --scope user`. En una sesión, la documentación ofrece `/plugin install oracle-support-sr --marketplace Diegoecab/oracle-support-sr` desde 2.1.275. Estas variantes requieren esas versiones; los comandos separados de arriba fueron los comprobados en el piloto. [Documentación oficial de instalación](https://code.claude.com/docs/en/discover-plugins).
+
+Instalar el plugin no configura la identidad OCI ni otorga permisos. El SDK puede instalarse dentro del entorno Python aprobado con `python -m pip install "oci>=2.177.0,<3"`. No hace falta descargar el repositorio ni ejecutar un instalador Python para registrar el plugin.
 
 Abrí una sesión nueva después de instalar. En Codex, invocá la skill desde el plugin instalado o pedí usar oracle-support-sr. En Claude, el nombre de la skill instalada como plugin es `/oracle-support-sr:oracle-support-sr`; una copia standalone utiliza `/oracle-support-sr`. No hace falta un MCP para este piloto. El SDK debe estar en el Python que ejecute el helper: si usás un entorno virtual, iniciá el CLI desde ese entorno o indicá al asistente la ruta del intérprete aprobado.
 
@@ -41,17 +45,20 @@ Usá oracle-support-sr con el perfil MI_PERFIL para validar acceso y listar
 mis SRs visibles. Mostrá tenancy, región, estado y evidencia. No crees un SR todavía.
 ```
 
-Para el ciclo completo, elegí un caso real de consulta o una validación controlada que no duplique un incidente existente. Indicá producto, síntoma, recurso cuando corresponda e impacto. Autorizá explícitamente la creación y el cierre de ese SR de prueba; verificá producto/categoría en el portal y la consulta posterior. No cierres un incidente de producción para probar el plugin.
+Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedades hay?", "Agregá este diagnóstico" o "Cerralo; ya quedó resuelto". La skill reutiliza perfil y recurso del contexto y pregunta por lo relevante que falte. Crear un caso requiere un mapeo de producto/categoría verificado; si falta, conserva el borrador. No se necesita dictar IDs opacos ni una secuencia completa de comandos.
 
 ## Alcance validado y tiempos
 
-El piloto ejecutó creación, consulta, nota, lectura de novedades, cierre y GET final en 32,062 s de ejecución automática sobre un SR de consulta. No incluye investigación ni todo el razonamiento del asistente. La referencia comercial de 5 minutos frente a 30 en consola expresa hasta un 83 % de ahorro estimado, incluyendo preparación y primera actualización; todavía no es un benchmark completo comparable. El formulario de consola también puede precargar información: medir ese flujo real antes de validar el ahorro del cliente.
+El piloto previo al guard de clasificación de 0.3.0 ejecutó creación, consulta, nota, lectura de novedades, cierre y GET final en 32,062 s sobre un SR de consulta. No incluye investigación ni todo el razonamiento del asistente. La referencia de 5 minutos frente a 30 en consola expresa hasta un 83 % de ahorro estimado, incluyendo preparación y primera actualización, con clasificación ya validada; todavía no es un benchmark completo comparable. El formulario de consola también puede precargar información: medir ese flujo real antes de validar el ahorro del cliente.
 
-Se confirmó el producto OpenSearch, pero una subcategoría solicitada no coincidió con el portal. El mapeo fino sigue pendiente de Oracle; es un requisito a resolver antes de prometer enrutamiento automático completo o habilitar creación desatendida. Los casos de consulta no prueban la recolección automática de logs de un incidente real.
+Se confirmó el producto OpenSearch, pero Backup and Restore no coincidió con el portal. Ese mapeo sigue pendiente de Oracle y está bloqueado para creación técnica en esta versión. El helper requiere una receta local VERIFIED, vigente y compatible con la taxonomía en vivo; no se distribuyen recetas preaprobadas de un cliente. La receta no garantiza una cola interna inmutable: también se debe verificar el caso creado. Los casos de consulta no prueban la recolección automática de logs de un incidente real.
 
 ## Documentación y requisitos
 
 - [Manual del cliente, HTML sin datos del piloto](docs/manual-cliente.html)
+- [Recorrido por consola y con pedidos naturales](docs/recorrido.md)
+- [Producto, subproducto y registro de mapeos verificados](docs/clasificacion.md)
+- [ADB: MCP nativo y SQLcl como fuentes opcionales de evidencia](docs/adb-mcp.md)
 - [Acceso mínimo: SRs y evidencia](docs/requisitos.md)
 - [Diseño Datadog -> OCI Functions -> SR -> pager](docs/datadog.md)
 - [Formato de nuestros updates](docs/formato-updates.md)

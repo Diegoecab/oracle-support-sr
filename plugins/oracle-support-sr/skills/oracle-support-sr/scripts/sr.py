@@ -79,6 +79,63 @@ def validate_request(data):
     return data
 
 
+def flatten_taxonomy(groups):
+    """Keep catalog hierarchy; do not invent portal product identifiers."""
+    rows = []
+    def field(value, name):
+        return value.get(name, value.get(name.replace('_', '-')))
+    for group in groups or []:
+        for group_key, group_label in (group.get('service') or {}).items():
+            for service in group.get('services') or []:
+                for service_key, service_label in (service.get('service') or {}).items():
+                    for category in field(service, 'service_categories') or []:
+                        for category_key, category_label in (field(category, 'service_category') or {}).items():
+                            children = field(category, 'sub_categories') or [{}]
+                            for child in children:
+                                for sub_key, sub_label in (field(child, 'sub_category') or {None: None}).items():
+                                    rows.append({'service_group_key': group_key, 'service_group_label': group_label, 'service_key': service_key, 'service_label': service_label, 'category_key': category_key, 'category_label': category_label, 'subcategory_key': sub_key, 'subcategory_label': sub_label})
+    return rows
+
+
+def validate_routing(request, registry, catalog=None, now=None):
+    """Block unproven TECH recipes. This cannot guarantee a backend queue."""
+    if registry.get('schema_version') != 1 or registry.get('status') != 'VERIFIED':
+        raise ValueError('Routing is not VERIFIED; keep a draft and obtain case-side mapping evidence')
+    if registry.get('tenancy_ocid') != request['compartmentId'] or registry.get('user_group_id') != request.get('userGroupId'):
+        raise ValueError('Routing registry tenancy/group does not match the request')
+    now = now or dt.datetime.now(dt.timezone.utc)
+    verification = registry.get('verification') or {}
+    try:
+        observed_at = dt.datetime.fromisoformat(verification['observed_at_utc'].replace('Z', '+00:00'))
+        valid_until = dt.datetime.fromisoformat(verification['valid_until_utc'].replace('Z', '+00:00'))
+        valid = observed_at.tzinfo is not None and valid_until.tzinfo is not None and observed_at <= now < valid_until
+    except (KeyError, ValueError, TypeError):
+        valid = False
+    if not valid:
+        raise ValueError('Routing evidence is expired, future-dated or missing a timezone')
+    expected = registry.get('expected_portal') or {}
+    observed = verification.get('observed_portal') or {}
+    if not all(isinstance(expected.get(k), str) and expected[k].strip() and expected[k] == observed.get(k) for k in ('product', 'category')) or not verification.get('source'):
+        raise ValueError('Routing portal product/category mismatch or missing verification source')
+    resources = request['ticket'].get('resourceList') or []
+    routes = registry.get('routes') or []
+    if not resources or len(resources) != len(routes):
+        raise ValueError('Every technical create resource requires a classified verified route')
+    rows = flatten_taxonomy(catalog) if catalog is not None else None
+    for resource, route in zip(resources, routes):
+        item = resource.get('item') or {}
+        actual = {'region_key': resource.get('region'), 'category_key': (item.get('category') or {}).get('categoryKey'), 'subcategory_key': (item.get('subCategory') or {}).get('subCategoryKey'), 'issue_type_key': (item.get('issueType') or {}).get('issueTypeKey')}
+        if item.get('type') != 'tech' or not actual['region_key'] or not actual['category_key'] or any(actual[k] != route.get(k) for k in actual):
+            raise ValueError('Request routing differs from the verified recipe')
+        if actual['issue_type_key']:
+            raise ValueError('This guard cannot validate issueTypeKey against the reviewed catalog; keep a draft')
+        if rows is not None:
+            keys = ('service_group_key', 'service_group_label', 'service_key', 'service_label', 'category_key', 'category_label', 'subcategory_key', 'subcategory_label')
+            if not any(all(route.get(k) == row[k] for k in keys) for row in rows):
+                raise ValueError('Verified route no longer matches the live taxonomy hierarchy/labels')
+    return expected
+
+
 def begin_attempt(directory, operation, payload):
     """An exclusive local receipt blocks duplicate or uncertain write retries."""
     directory = Path(directory)
@@ -291,6 +348,9 @@ def parser():
             sub.add_argument('--file', required=True)
         if name == 'create':
             sub.add_argument('--request-file', required=True)
+            sub.add_argument('--routing-file', help='Customer-local VERIFIED routing recipe; required for executing TECH creation')
+        if name == 'taxonomy':
+            sub.add_argument('--catalog-file', help='Also save a flattened hierarchy for the agent; a catalog is not routing verification')
         if name in ('create', 'comment', 'close', 'attach'):
             sub.add_argument('--execute', action='store_true')
             sub.add_argument('--expected-tenancy', required=True)
@@ -322,6 +382,12 @@ def main(argv=None):
     service = Support(args)
     if mutation and service.tenancy != args.expected_tenancy:
         raise ValueError('Profile tenancy differs from expected tenancy; no write sent')
+    routing = None
+    if mutation and args.operation == 'create' and payload['problemType'] == 'TECH':
+        if not args.routing_file:
+            raise ValueError('TECH creation requires --routing-file with a VERIFIED mapping; draft retained, no SR created')
+        routing = json.loads(Path(args.routing_file).read_text(encoding='utf-8-sig'))
+        validate_routing(payload, routing)
     if mutation and args.backend == 'sdk':
         # Reject unsupported contracts before reserving a write receipt.
         if args.operation == 'attach' and not hasattr(service.client, 'put_attachment'):
@@ -346,6 +412,11 @@ def main(argv=None):
             raise ValueError('Request problemType differs from --problem-type')
         if args.problem_type == 'TECH' and payload['userGroupId'] not in group_ids:
             raise ValueError('Requested group does not grant create permission')
+        if routing:
+            catalog = service.call('taxonomy')
+            if catalog.get('status') != 200 or catalog.get('next_page'):
+                raise ValueError('Cannot validate a complete live taxonomy; no SR created')
+            validate_routing(payload, routing, catalog['data'])
     evidence = Path(args.evidence_dir)
     evidence.mkdir(parents=True, exist_ok=True)
     attempt = None
@@ -362,6 +433,13 @@ def main(argv=None):
     except Exception as exc:
         result = {'error_type': type(exc).__name__, 'message': str(exc)}
     result.update(operation=args.operation, backend=args.backend, sdk_version=service.oci.__version__, profile=args.profile, region=service.region, at_utc=dt.datetime.now(dt.timezone.utc).isoformat(), elapsed_seconds=round(time.monotonic()-start, 3))
+    if args.operation == 'taxonomy' and args.catalog_file and result.get('status') == 200:
+        catalog_path = Path(args.catalog_file)
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
+        catalog_path.write_text(json.dumps({'tenancy_ocid': service.tenancy, 'captured_at_utc': result['at_utc'], 'routing_verified': False, 'routes': flatten_taxonomy(result['data'])}, indent=2, ensure_ascii=False), encoding='utf-8')
+        result['catalog_file'] = str(catalog_path)
+    if routing:
+        result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG', 'expected_portal': routing['expected_portal'], 'current_case_assignment': 'NOT_VERIFIED'}
     if attempt:
         receipt = finish_attempt(*attempt, result)
         result['receipt'] = str(attempt[0])
