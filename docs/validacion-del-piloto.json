@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
@@ -8,9 +8,24 @@
   "historical_final_test_sr_state": "CLOSED",
   "note_portal_rendering_verified": true,
   "customer_identifiers_included": false,
-  "console_minutes_assumption": 30,
-  "skill_minutes_reference": 5,
-  "saving_percent_rounded_estimate": 83,
+  "single_sr_scenario": {
+    "sr_count": 1,
+    "interactions": 5,
+    "interaction_scope": "Five interactions in total for one SR, including opening and subsequent follow-ups; no additional opening is added.",
+    "assumed_minutes_per_interaction": {
+      "console": 30,
+      "cli_sdk_manual": 15,
+      "skill": 5
+    },
+    "estimated_total_minutes_per_sr": {
+      "console": 150,
+      "cli_sdk_manual": 75,
+      "skill": 25
+    },
+    "estimated_saved_minutes_per_sr": 125,
+    "estimated_saving_percent_rounded": 83,
+    "comparative_benchmark_completed": false
+  },
   "console_benchmark_completed": false,
   "datadog_deployed": false,
   "opensearch_fine_category_mapping": "BLOCKED_UNVERIFIED",

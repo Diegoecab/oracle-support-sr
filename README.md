@@ -49,7 +49,11 @@ Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedad
 
 ## Alcance validado y tiempos
 
-El piloto previo al guard de clasificación de 0.3.0 ejecutó creación, consulta, nota, lectura de novedades, cierre y GET final en 32,062 s sobre un SR de consulta. No incluye investigación ni todo el razonamiento del asistente. La referencia de 5 minutos frente a 30 en consola expresa hasta un 83 % de ahorro estimado, incluyendo preparación y primera actualización, con clasificación ya validada; todavía no es un benchmark completo comparable. El formulario de consola también puede precargar información: medir ese flujo real antes de validar el ahorro del cliente.
+El escenario considera un solo SR con cinco interacciones en total, incluyendo apertura y seguimientos: leer novedades, reunir logs o información adicional, responder y verificar. Con una media supuesta de 30 minutos por interacción en consola y 5 con la skill, el total es de 2 h 30 min frente a 25 min: 2 h 5 min de ahorro estimado, un 83 %. El tiempo de CLI/SDK manual se estima en 15 minutos por interacción, 1 h 15 min para ese mismo caso.
+
+Estas medias todavía no se midieron en un SR completo con cinco interacciones. La referencia de 5 minutos proviene de un tramo de apertura de 3 min 43 s redondeado; aplicarla al seguimiento es un supuesto. Se cuenta tiempo activo, sin esperas de Oracle, configuración inicial ni investigación compleja. Se asumen perfil, clasificación y fuentes accesibles ya configurados. La consola puede conservar sesión y precargar información.
+
+El piloto previo al guard de clasificación de 0.3.0 ejecutó seis operaciones automáticas en 32,062 s sobre un SR de consulta. Es tiempo de ejecución de comandos y no mide las cinco interacciones del escenario.
 
 Se confirmó el producto OpenSearch, pero Backup and Restore no coincidió con el portal. Ese mapeo sigue pendiente de Oracle y está bloqueado para creación técnica en esta versión. El helper requiere una receta local VERIFIED, vigente y compatible con la taxonomía en vivo; no se distribuyen recetas preaprobadas de un cliente. La receta no garantiza una cola interna inmutable: también se debe verificar el caso creado. Los casos de consulta no prueban la recolección automática de logs de un incidente real.
 
