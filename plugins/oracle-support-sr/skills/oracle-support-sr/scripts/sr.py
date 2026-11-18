@@ -102,10 +102,14 @@ def validate_request(data):
 
 
 def flatten_taxonomy(groups):
-    """Keep catalog hierarchy; do not invent portal product identifiers."""
+    """Keep hierarchy and schema metadata, without inventing wire selectors."""
     rows = []
     def field(value, name):
-        return value.get(name, value.get(name.replace('_', '-')))
+        camel = re.sub(r'_([a-z])', lambda match: match[1].upper(), name)
+        for key in (name, name.replace('_', '-'), camel):
+            if key in value:
+                return value[key]
+        return None
     for group in groups or []:
         for group_key, group_label in (group.get('service') or {}).items():
             for service in group.get('services') or []:
@@ -115,7 +119,7 @@ def flatten_taxonomy(groups):
                             children = field(category, 'sub_categories') or [{}]
                             for child in children:
                                 for sub_key, sub_label in (field(child, 'sub_category') or {None: None}).items():
-                                    rows.append({'service_group_key': group_key, 'service_group_label': group_label, 'service_key': service_key, 'service_label': service_label, 'category_key': category_key, 'category_label': category_label, 'subcategory_key': sub_key, 'subcategory_label': sub_label})
+                                    rows.append({'service_group_key': group_key, 'service_group_label': group_label, 'service_key': service_key, 'service_label': service_label, 'category_key': category_key, 'category_label': category_label, 'subcategory_key': sub_key, 'subcategory_label': sub_label, 'service_schema': service.get('schema'), 'category_schema': category.get('schema'), 'subcategory_schema': child.get('schema'), 'category_has_subcategory': field(category, 'has_sub_category')})
     return rows
 
 
@@ -151,10 +155,19 @@ def validate_routing(request, registry, catalog=None, now=None):
             raise ValueError('Request routing differs from the verified recipe')
         if actual['issue_type_key']:
             raise ValueError('This guard cannot validate issueTypeKey against the reviewed catalog; keep a draft')
+        if str(route.get('category_has_subcategory', '')).strip().lower() == 'true' and not actual['subcategory_key']:
+            raise ValueError('Selected category requires a subcategory; no SR created')
         if rows is not None:
             keys = ('service_group_key', 'service_group_label', 'service_key', 'service_label', 'category_key', 'category_label', 'subcategory_key', 'subcategory_label')
-            if not any(all(route.get(k) == row[k] for k in keys) for row in rows):
+            matches = [row for row in rows if all(route.get(k) == row[k] for k in keys)]
+            if not matches:
                 raise ValueError('Verified route no longer matches the live taxonomy hierarchy/labels')
+            metadata = ('service_schema', 'category_schema', 'subcategory_schema', 'category_has_subcategory')
+            variants = {tuple(row[k] for k in metadata) for row in matches}
+            if len(variants) != 1:
+                raise ValueError('Ambiguous schema metadata for the selected live taxonomy route; no SR created')
+            if not all(route.get(k) == matches[0][k] for k in metadata):
+                raise ValueError('Verified route schema metadata is missing or changed; reverify the routing recipe')
     return expected
 
 
@@ -474,7 +487,7 @@ def main(argv=None):
     if args.operation == 'taxonomy' and args.catalog_file and result.get('status') == 200:
         catalog_path = Path(args.catalog_file)
         catalog_path.parent.mkdir(parents=True, exist_ok=True)
-        catalog_path.write_text(json.dumps({'tenancy_ocid': service.tenancy, 'captured_at_utc': result['at_utc'], 'routing_verified': False, 'routes': flatten_taxonomy(result['data'])}, indent=2, ensure_ascii=False), encoding='utf-8')
+        catalog_path.write_text(json.dumps({'catalog_schema_version': 2, 'tenancy_ocid': service.tenancy, 'captured_at_utc': result['at_utc'], 'routing_verified': False, 'routes': flatten_taxonomy(result['data'])}, indent=2, ensure_ascii=False), encoding='utf-8')
         result['catalog_file'] = str(catalog_path)
     if routing:
         result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG', 'expected_portal': routing['expected_portal'], 'current_case_assignment': 'NOT_VERIFIED'}

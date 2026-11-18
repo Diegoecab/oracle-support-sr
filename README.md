@@ -63,7 +63,7 @@ Estas medias todavía no se midieron en un SR completo con cinco interacciones. 
 
 El piloto previo al guard de clasificación de 0.3.0 ejecutó seis operaciones automáticas en 32,062 s sobre un SR de consulta. Es tiempo de ejecución de comandos y no mide las cinco interacciones del escenario.
 
-Se confirmó el producto OpenSearch, pero Backup and Restore no coincidió con el portal. Ese mapeo sigue pendiente de Oracle y está bloqueado para creación técnica en esta versión. El helper requiere una receta local VERIFIED, vigente y compatible con la taxonomía en vivo; no se distribuyen recetas preaprobadas de un cliente. La receta no garantiza una cola interna inmutable: también se debe verificar el caso creado. Los casos de consulta no prueban la recolección automática de logs de un incidente real.
+Se confirmó el producto OpenSearch, pero Backup and Restore no coincidió con el portal. Ese mapeo sigue pendiente de Oracle y está bloqueado para creación técnica en esta versión. Desde 0.5.0 el catálogo conserva los schemas de servicio/categoría/subcategoría y su obligatoriedad; el control detecta cambios o ambigüedades incluso si las claves y etiquetas no cambian. Esos schemas no se convierten en campos del API sin un contrato comprobado. El helper requiere una receta local VERIFIED, vigente y compatible con la taxonomía en vivo; no se distribuyen recetas preaprobadas de un cliente. La clasificación comprobada y la asignación interna de ingenieros son aspectos distintos. Los casos de consulta no prueban la recolección automática de logs de un incidente real.
 
 ## Documentación y requisitos
 

@@ -31,6 +31,18 @@ No convertir el HTTP 200 ni las claves repetidas en una afirmación de que la co
 
 Como ejemplo de descubrimiento, la consulta del 17/11/2026 devolvió para OpenSearch: Backup and Restore, Connectivity, Import and Export, Performance y Cluster Provision and Resize. Ese listado ilustra el catálogo disponible en esa consulta, no cinco recetas verificadas. La skill vuelve a consultar el catálogo en el entorno del cliente.
 
+## Schemas y selección de subcategoría
+
+La taxonomía contiene más información que las claves y etiquetas. Los modelos oficiales [Services](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.Services.html), [SubCategories](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.SubCategories.html) y [SubComponents](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.SubComponents.html) incluyen `schema` en distintos niveles y el indicador `hasSubCategory` donde corresponde.
+
+En la rama OpenSearch consultada el 18/11/2026, el schema de la categoría padre coincide con el schema de Cluster Provision and Resize; Backup and Restore tiene otro schema. El primer valor coincide con la clasificación alternativa observada en el portal. Es una correlación concreta para investigar con Oracle, no una causa probada ni evidencia de que deba enviarse ese valor en otro campo.
+
+La exportación anterior omitía esos metadatos. Desde 0.5.0 se conservan `service_schema`, `category_schema`, `subcategory_schema` y `category_has_subcategory`. La comparación con una receta verificada también los revisa: un cambio de schema puede detener una creación aunque las claves y etiquetas sigan iguales. Si el catálogo tiene variantes contradictorias para la misma ruta, no se elige la primera. Si exige subcategoría, no se acepta su omisión.
+
+Estos valores se mantienen como evidencia del catálogo. No se traducen automáticamente a `issueTypeKey`, `contextualData.schemaName` ni a campos nuevos del request. El [modelo ContextualData](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.ContextualData.html) define un contenedor, pero no establece por sí solo el contrato de ese payload para la ruta elegida. Hay que obtener y verificar el uso soportado antes de completar esos campos.
+
+El [MCP oficial de Oracle, código de conversión revisado](https://github.com/oracle/mcp/blob/cdea374d50c230c221fe4ea306fcd953b3977ef9/src/oci-support-mcp-server/oracle/oci_support_mcp_server/models.py) pasa los campos al SDK sin aportar una traducción adicional de esos schemas. Cambiar a ese MCP no demuestra resolver el mapeo. También se inspeccionó el JSON original del GetIncident público: la respuesta del caso revisado no incluía una clasificación persistida estructurada ni historial interno de asignaciones. Esa ausencia no era únicamente un descarte del modelo del SDK.
+
 ## El mapeo que necesita la skill
 
 Usar dos registros distintos:
@@ -40,9 +52,9 @@ Usar dos registros distintos:
 
 La persona describe servicio/recurso, síntoma e impacto. El LLM obtiene los IDs desde el catálogo y busca una receta válida; no le pide que memorice claves. Los aliases humanos ayudan a buscar pero no habilitan un mapeo por similitud de texto. Si la selección es ambigua o el mapeo es desconocido, preparar el borrador y explicar el dato pendiente.
 
-## Qué aplica la versión 0.3.0
+## Qué aplica el control actual
 
-El helper requiere --routing-file para ejecutar create de tipo TECH. Comprueba coincidencia de tenancy/grupo, región y claves del request, igualdad de producto/categoría esperados y observados en la evidencia, vigencia de esa evidencia y pertenencia de la ruta a la taxonomía consultada en vivo. Un cambio de etiquetas o de jerarquía detiene el alta. No hay receta técnica preaprobada incluida en el paquete.
+Desde 0.3.0, el helper requiere --routing-file para ejecutar create de tipo TECH. Comprueba coincidencia de tenancy/grupo, región y claves del request, igualdad de producto/categoría esperados y observados en la evidencia, vigencia de esa evidencia y pertenencia de la ruta a la taxonomía consultada en vivo. Un cambio de etiquetas o de jerarquía detiene el alta. Desde 0.5.0 compara además los schemas y la obligatoriedad de la subcategoría. No hay receta técnica preaprobada incluida en el paquete.
 
 El archivo es una configuración local mantenida por el cliente, no un nuevo campo del API. La skill lo resuelve desde el contexto/configuración autorizada y lo pasa al helper. El usuario no tiene que escribirlo en cada pedido. No marcar VERIFIED automáticamente, falsificar una comprobación, ignorar un vencimiento ni cambiar a raw API/CLI para sortear el control.
 
@@ -54,8 +66,12 @@ El catálogo puede exportarse en formato simple para la skill:
 python scripts/sr.py --profile MI_PERFIL --evidence-dir ./evidencia taxonomy --catalog-file ./configuracion/catalogo-productos.json
 ```
 
-Un archivo de receta tiene schema_version=1, status=VERIFIED, tenancy_ocid, user_group_id, routes y expected_portal. Cada ruta conserva region_key, las claves y etiquetas de la jerarquía exportada y, cuando no aplica, subcategory_key/subcategory_label nulos. verification contiene source, observed_at_utc, valid_until_utc y observed_portal.product/category iguales a expected_portal. Las fechas requieren zona horaria. La evidencia debe existir y referirse al contrato usado; esta estructura no otorga validez a una declaración sin evidencia.
+El catálogo enriquecido usa `catalog_schema_version=2`. Un archivo de receta conserva schema_version=1, status=VERIFIED, tenancy_ocid, user_group_id, routes y expected_portal. Cada ruta conserva region_key, las claves y etiquetas de la jerarquía exportada, los cuatro metadatos nuevos y, cuando no aplica, subcategory_key/subcategory_label nulos. verification contiene source, observed_at_utc, valid_until_utc y observed_portal.product/category iguales a expected_portal. Las fechas requieren zona horaria. La evidencia debe existir y referirse al contrato usado; esta estructura no otorga validez a una declaración sin evidencia.
+
+Una receta anterior sin esos metadatos debe revisarse si el catálogo actual los publica. No completar su prueba histórica con valores actuales y marcarla verificada automáticamente. Si la clasificación aún no fue comprobada, conservar el borrador y obtener primero el contrato soportado de Oracle. Una consulta a ListIncidentResourceTypes con TECH devolvió INVALID_FORMAT en el entorno revisado; para esta jerarquía se utiliza el valor documentado TAXONOMY, sin inventar otros tipos para buscar issue types.
 
 El modelo público admite issueTypeKey, pero el guard actual no lo considera verificado con la taxonomía revisada y bloquea una creación que lo incluya. Esta limitación se documenta para no simular cobertura de un nivel que aún no se ha comprobado.
 
 Después de crear con una receta válida, el resultado diferencia receta comprobada de asignación del nuevo SR. Revisar Product/Category persistidos cuando exista una lectura soportada; si requiere portal, mantener la comprobación pendiente hasta verla. No crear duplicados, cambiar otra clasificación o cerrar un SR para ocultar una discrepancia. Este control reduce el riesgo conocido; no promete una cola interna inmutable ni elimina la necesidad de verificar cambios de comportamiento de Oracle.
+
+La garantía verificable se centra en la clasificación solicitada y comprobada. La asignación interna y los traslados entre equipos los coordina Oracle; no se encontró un selector público de cola. Para cerrar el mapeo pendiente, solicitar el payload mínimo soportado, el significado de cada nivel y schema y la forma de comprobar el producto/categoría resultante. Luego validar ese contrato en una prueba autorizada antes de habilitar una receta.

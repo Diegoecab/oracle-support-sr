@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import datetime as dt
 import io
 from html.parser import HTMLParser
@@ -16,6 +17,75 @@ REQUEST = {'compartmentId': TENANCY, 'problemType': 'TECH', 'userGroupId': 'fixt
 
 
 class SafetyTests(unittest.TestCase):
+    def routing_schema_fixture(self):
+        request, registry, catalog = self.routing_fixture()
+        service = catalog[0]['services'][0]
+        category = service['service_categories'][0]
+        service['schema'] = 'fixture-service-schema'
+        category['schema'] = 'fixture-parent-default-schema'
+        category['has_sub_category'] = 'true'
+        category['sub_categories'][0]['schema'] = 'fixture-selected-leaf-schema'
+        registry['routes'] = [dict(sr.flatten_taxonomy(catalog)[0], region_key='IAD')]
+        return request, registry, catalog
+
+    def test_schema_metadata_survives_sdk_cli_and_raw_json_names(self):
+        _, registry, catalog = self.routing_schema_fixture()
+        expected = dict(registry['routes'][0])
+        expected.pop('region_key')
+        def rename(value, style):
+            if isinstance(value, list):
+                return [rename(item, style) for item in value]
+            if isinstance(value, dict):
+                return {(key.replace('_', '-') if style == 'cli' else ''.join(part.title() if index else part for index, part in enumerate(key.split('_')))): rename(child, style) for key, child in value.items()}
+            return value
+        for style, value in [('sdk', catalog), ('cli', rename(catalog, 'cli')), ('raw', rename(catalog, 'raw'))]:
+            with self.subTest(style=style):
+                self.assertEqual(sr.flatten_taxonomy(value), [expected])
+        self.assertEqual(expected['category_schema'], 'fixture-parent-default-schema')
+        self.assertEqual(expected['subcategory_schema'], 'fixture-selected-leaf-schema')
+
+    def test_schema_change_blocks_even_when_taxonomy_keys_and_labels_match(self):
+        for level in ('service', 'category', 'subcategory'):
+            with self.subTest(level=level):
+                request, registry, catalog = self.routing_schema_fixture()
+                self.assertEqual(sr.validate_routing(request, registry, catalog)['category'], 'Backup and Restore')
+                service = catalog[0]['services'][0]
+                category = service['service_categories'][0]
+                target = {'service': service, 'category': category, 'subcategory': category['sub_categories'][0]}[level]
+                target['schema'] = 'changed-fixture-schema'
+                with self.assertRaisesRegex(ValueError, 'schema metadata is missing or changed'):
+                    sr.validate_routing(request, registry, catalog)
+
+    def test_older_recipe_without_available_schema_evidence_requires_reverification(self):
+        request, registry, catalog = self.routing_schema_fixture()
+        for key in ('service_schema', 'category_schema', 'subcategory_schema', 'category_has_subcategory'):
+            registry['routes'][0].pop(key)
+        with self.assertRaisesRegex(ValueError, 'reverify'):
+            sr.validate_routing(request, registry, catalog)
+
+    def test_required_subcategory_cannot_be_omitted(self):
+        request, registry, _ = self.routing_schema_fixture()
+        request['ticket']['resourceList'][0]['item'].pop('subCategory')
+        registry['routes'][0]['subcategory_key'] = None
+        with self.assertRaisesRegex(ValueError, 'requires a subcategory'):
+            sr.validate_routing(request, registry)
+
+    def test_conflicting_schema_rows_are_not_resolved_by_first_match(self):
+        request, registry, catalog = self.routing_schema_fixture()
+        duplicate = copy.deepcopy(catalog[0]['services'][0]['service_categories'][0])
+        duplicate['sub_categories'][0]['schema'] = 'conflicting-fixture-schema'
+        catalog[0]['services'][0]['service_categories'].append(duplicate)
+        with self.assertRaisesRegex(ValueError, 'Ambiguous schema metadata'):
+            sr.validate_routing(request, registry, catalog)
+
+    def test_schema_metadata_does_not_invent_wire_fields_or_change_request(self):
+        request, registry, catalog = self.routing_schema_fixture()
+        original = copy.deepcopy(request)
+        sr.validate_routing(request, registry, catalog)
+        self.assertEqual(request, original)
+        self.assertNotIn('issueType', request['ticket']['resourceList'][0]['item'])
+        self.assertNotIn('contextualData', request['ticket'])
+
     def draft(self, args):
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(sr.main(args), 0)
