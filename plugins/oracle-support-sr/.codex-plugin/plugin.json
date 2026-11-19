@@ -1,6 +1,6 @@
 {
   "name": "oracle-support-sr",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Manage OCI support requests and readable updates through the official OCI CLI and Python SDK.",
   "author": {
     "name": "Diego Cabrera"

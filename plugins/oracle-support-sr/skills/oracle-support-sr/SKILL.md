@@ -83,4 +83,19 @@ For Datadog alerts, pager enrichment or unattended SR creation, read [references
 
 For field definitions, enum/numeric severity mapping, and Oracle/AWS creation intake, read [references/fields-and-intake.md](references/fields-and-intake.md). For monitor pricing, read [references/monitoring-costs.md](references/monitoring-costs.md) and refresh rates and remaining account allowances before quoting costs.
 
-State the SR key, type, severity, current state, client versions, operations actually performed, request IDs, and evidence paths. Separate local validation, live reads, successful writes, rejected requests, and unverified actions. Re-read after mutation. Do not claim creation succeeded unless a returned SR key and subsequent retrieval confirm it. Avoid exposing credentials, signing headers, tokens, or unnecessary personal data. Keep customer-specific evidence outside the reusable skill package.
+After every create, update, attachment or close, give the user a readable result with the key case details. An SR number, HTTP status or raw helper JSON alone is not a complete response. For a requested sequence, report each operation separately so the user can follow creation, changes and closure.
+
+Include:
+- **SR number and portal link**, using the actual returned key, plus the **title and description** of the case. Use the saved description, not only the outgoing draft; if it is long, give a faithful summary and a link/path to the exact saved text. For an existing case, retrieve its description rather than reconstructing it from the latest comment.
+- **Operation and result**: what was actually created, added, attached or closed, with the verification time. Distinguish submitted/accepted, confirmed by a subsequent read, rejected, and uncertain results. Never describe a draft or a cached receipt as a new write.
+- **Current state and lifecycle details**, severity, and the affected service/resource/region when relevant. Show the profile/account when needed to identify the target. Report absent important fields as unavailable or pending; never infer them from a successful HTTP response.
+- **Classification** when relevant: distinguish requested product/category/subcategory from independently verified persisted values. Keep routing and internal assignment uncertainties explicit.
+- **Pending items and next action**, including a read-back failure, attachment processing, missing evidence or required user input. Link the operation's local evidence without dumping sensitive logs or long identifiers into the conversation.
+
+Adapt the operation detail:
+- **Create**: show the new case's actual title and description, type, severity, current state and relevant resource/routing context. Do not claim creation succeeded unless a returned SR key and subsequent retrieval confirm it.
+- **Update**: retain the case identity and description, summarize the note actually published or each field changed, and show before/after values when available. Do not claim a field changed when only correspondence was added. Identify the saved activity and author/time when returned.
+- **Attachment**: identify the case, filenames, access restriction and returned processing state. Accepted upload is not proof the attachment is already received/processed.
+- **Close**: retain the case identity and description, report the closing reason/note and the state actually returned by the verification read. A close request does not prove CLOSED; this operation preserves the SR history and is not deletion.
+
+Re-read the SR after each mutation, checking the relevant activity, attachment or state as well as the case identity. If verification fails, report the accepted write and the pending verification; reconcile before retrying. Put client versions, request IDs and evidence paths in technical detail when useful. Avoid exposing credentials, signing headers, tokens, or unnecessary personal data. Keep customer-specific evidence outside the reusable skill package.
