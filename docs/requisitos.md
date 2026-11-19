@@ -50,7 +50,7 @@ La skill guía al LLM para obtener contexto mediante herramientas y lecturas aut
 
 Como fuente opcional de evidencia, ADB Serverless dispone de MCP nativo; SQLcl MCP es otra alternativa. Se configuran aparte y requieren identidad, conectividad y permisos para las herramientas o consultas aprobadas. Los privilegios de tickets no los conceden.
 
-Para ejecutar un alta TECH, la versión 0.3.0 exige además una receta local de producto/categoría verificada y vigente, que coincida con el catálogo actual. Si no existe o no coincide, conserva el borrador y bloquea el envío. Es un control de la skill, no un parámetro adicional del API de Oracle.
+Para ejecutar un alta TECH, usar una receta VERIFIED con evidencia de clasificación persistida o una selección nueva CATALOG_ONLY del catálogo vigente. El primer uso exige revisión manual, aun en AUTO, sin requerir un SR previo. Una discrepancia conocida bloquea esa ruta; no se puede presentar como primer uso. Es un control de la skill, no un parámetro adicional del API de Oracle.
 
 ## Campos que no deben faltar en el caso
 

@@ -45,7 +45,7 @@ Usá oracle-support-sr con el perfil MI_PERFIL para validar acceso y listar
 mis SRs visibles. Mostrá tenancy, región, estado y evidencia. No crees un SR todavía.
 ```
 
-Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedades hay?", "Agregá este diagnóstico" o "Cerralo; ya quedó resuelto". La skill reutiliza perfil y recurso del contexto y pregunta por lo relevante que falte. Crear un caso requiere un mapeo de producto/categoría verificado; si falta, conserva el borrador. No se necesita dictar IDs opacos ni una secuencia completa de comandos.
+Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedades hay?", "Agregá este diagnóstico" o "Cerralo; ya quedó resuelto". La skill reutiliza perfil y recurso del contexto y pregunta por lo relevante que falte. Una selección nueva usa el catálogo vigente y revisión manual; una discrepancia conocida bloquea esa ruta. No hace falta un SR previo ni dictar IDs opacos.
 
 ## Modos y aprobación
 
@@ -67,14 +67,15 @@ Para un producto nuevo no hace falta un SR previo: desde 0.7.0 se puede preparar
 
 ## Documentación y requisitos
 
-- [Manual del cliente, HTML sin datos del piloto](docs/manual-cliente.html)
+- [OpenSearch: manual para cliente, HTML](docs/manual-opensearch.html)
+- [OpenSearch: guía para leer en GitHub](docs/opensearch.md)
+- [ADB: manual para cliente, HTML](docs/manual-adb.html)
+- [ADB: guía para leer en GitHub](docs/adb.md)
 - [Recorrido por consola y con pedidos naturales](docs/recorrido.md)
 - [Modos MANUAL y AUTO](docs/modos.md)
 - [Producto, subproducto y registro de mapeos verificados](docs/clasificacion.md)
 - [ADB: MCP nativo y SQLcl como fuentes opcionales de evidencia](docs/adb-mcp.md)
 - [Acceso mínimo: SRs y evidencia](docs/requisitos.md)
-- [Diseño Datadog -> OCI Functions -> SR -> pager](docs/datadog.md)
-- [Métricas de OCI OpenSearch: Prometheus -> Datadog](docs/opensearch-datadog.md)
 - [Formato de nuestros updates](docs/formato-updates.md)
 - [Fuentes oficiales y blogs](docs/fuentes.md)
 
