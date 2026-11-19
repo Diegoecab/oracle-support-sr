@@ -86,7 +86,7 @@ class SafetyTests(unittest.TestCase):
         self.assertNotIn('verification', registry)
         self.assertNotIn('expected_portal', registry)
 
-    def test_first_use_requires_review_even_in_auto(self):
+    def test_first_use_respects_auto_and_manual_selection(self):
         with tempfile.TemporaryDirectory() as folder:
             request, registry, _ = self.first_use_fixture()
             request_path, route_path = Path(folder)/'request.json', Path(folder)/'route.json'
@@ -94,12 +94,14 @@ class SafetyTests(unittest.TestCase):
             route_path.write_text(json.dumps(registry), encoding='utf-8')
             args=['--mode','AUTO','--profile','fixture','--evidence-dir',folder,'create','--request-file',str(request_path),'--routing-file',str(route_path),'--expected-tenancy',TENANCY]
             preview=self.draft(args)
-            self.assertEqual(preview['mandatory_review_reason'], 'FIRST_USE_CATALOG_ROUTE')
-            with patch.object(sr, 'Support', side_effect=AssertionError('Unreviewed new route')):
-                with self.assertRaisesRegex(ValueError, 'FIRST_USE_CATALOG_ROUTE'):
-                    sr.main(args+['--execute'])
+            self.assertIsNone(preview['mandatory_review_reason'])
+            self.assertEqual(preview['mode'], 'AUTO')
+            self.assertFalse(preview['approval_required'])
+            manual=self.draft(['--mode','MANUAL']+args[2:])
+            self.assertEqual(manual['mode'], 'MANUAL')
+            self.assertTrue(manual['approval_required'])
 
-    def test_first_use_executes_with_approval_live_validation_and_pending_classification(self):
+    def test_first_use_auto_executes_with_live_validation_and_pending_classification(self):
         import oci
         with tempfile.TemporaryDirectory() as folder:
             request, registry, catalog = self.first_use_fixture()
@@ -111,9 +113,10 @@ class SafetyTests(unittest.TestCase):
             fake=MagicMock(tenancy=TENANCY,region='fixture-region',oci=oci)
             fake.call.side_effect=[{'status':200,'data':{'is_valid_user':True,'write_permitted_user_group_infos':[{'user_group_id':request['userGroupId']}]}},{'status':200,'data':catalog},{'status':200,'data':{'key':'fixture-new-product'}}]
             with patch.object(sr,'Support',return_value=fake):
-                result=self.draft(args+['--execute','--approval-digest',preview['approval_digest']])
+                result=self.draft(args+['--execute'])
             self.assertEqual([call.args[0] for call in fake.call.call_args_list],['preflight','taxonomy','create'])
-            self.assertEqual(result['execution_mode'],'MANUAL')
+            self.assertEqual(result['execution_mode'],'AUTO')
+            self.assertEqual(result['approval']['policy'],'SCOPED_AUTO')
             self.assertEqual(result['routing']['recipe'],'FIRST_USE_MATCHED_LIVE_CATALOG')
             self.assertIsNone(result['routing']['expected_portal'])
             self.assertEqual(result['routing']['persisted_classification'],'NOT_VERIFIED')
@@ -138,6 +141,40 @@ class SafetyTests(unittest.TestCase):
         catalog[0]['services'][0]['schema']='changed'
         with self.assertRaisesRegex(ValueError,'schema metadata'):
             sr.validate_routing(request,registry,catalog)
+
+    def test_first_use_auto_blocks_known_mismatch_before_any_api_call(self):
+        import oci
+        with tempfile.TemporaryDirectory() as folder:
+            request, registry, _ = self.first_use_fixture()
+            registry['known_mismatch'] = True
+            request_path, route_path = Path(folder)/'request.json', Path(folder)/'route.json'
+            request_path.write_text(json.dumps(request), encoding='utf-8')
+            route_path.write_text(json.dumps(registry), encoding='utf-8')
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region', oci=oci)
+            with patch.object(sr, 'Support', return_value=fake):
+                with self.assertRaisesRegex(ValueError, 'Known routing mismatch'):
+                    sr.main(['--mode','AUTO','--profile','fixture','--evidence-dir',folder,
+                             'create','--request-file',str(request_path),'--routing-file',str(route_path),
+                             '--expected-tenancy',TENANCY,'--execute'])
+            fake.call.assert_not_called()
+
+    def test_first_use_auto_blocks_live_catalog_drift_before_create(self):
+        import oci
+        with tempfile.TemporaryDirectory() as folder:
+            request, registry, catalog = self.first_use_fixture()
+            request_path, route_path = Path(folder)/'request.json', Path(folder)/'route.json'
+            request_path.write_text(json.dumps(request), encoding='utf-8')
+            route_path.write_text(json.dumps(registry), encoding='utf-8')
+            fake = MagicMock(tenancy=TENANCY, region='fixture-region', oci=oci)
+            fake.call.side_effect = [
+                {'status':200,'data':{'is_valid_user':True,'write_permitted_user_group_infos':[{'user_group_id':request['userGroupId']}]}},
+                {'status':200,'data':[]}]
+            with patch.object(sr, 'Support', return_value=fake):
+                with self.assertRaisesRegex(ValueError, 'live taxonomy'):
+                    sr.main(['--mode','AUTO','--profile','fixture','--evidence-dir',folder,
+                             'create','--request-file',str(request_path),'--routing-file',str(route_path),
+                             '--expected-tenancy',TENANCY,'--execute'])
+            self.assertEqual([call.args[0] for call in fake.call.call_args_list], ['preflight','taxonomy'])
 
     def routing_test_fixture(self):
         request, _, catalog = self.routing_schema_fixture()
@@ -635,6 +672,25 @@ class SafetyTests(unittest.TestCase):
 
 
 class LiteralReportTests(unittest.TestCase):
+    def test_title_budget_preserves_valid_text_without_truncation(self):
+        request = copy.deepcopy(REQUEST)
+        request['ticket']['title'] = 'X' * 80
+        snapshot = copy.deepcopy(request)
+        self.assertEqual(sr.validate_request(request), snapshot)
+        self.assertEqual(request, snapshot)
+
+    def test_long_title_is_rejected_locally_before_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request = copy.deepcopy(REQUEST)
+            request['ticket']['title'] = 'X' * 81
+            path = Path(folder) / 'request.json'
+            path.write_text(json.dumps(request), encoding='utf-8')
+            with patch.object(sr, 'Support', side_effect=AssertionError('No credentials needed')):
+                with self.assertRaisesRegex(ValueError, '80-character drafting budget'):
+                    sr.main(['--profile', 'FIXTURE', '--mode', 'AUTO', '--evidence-dir', folder,
+                             'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
+            self.assertEqual(json.loads(path.read_text())['ticket']['title'], 'X' * 81)
+
     def test_approval_block_exposes_draft_fields_without_loading_credentials(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'request.json'
@@ -651,8 +707,8 @@ class LiteralReportTests(unittest.TestCase):
     def test_draft_keeps_unicode_and_full_original_description(self):
         original = copy.deepcopy(REQUEST)
         original['ticket']['description'] = 'Original English question.\n\nCaf\u00e9, SQL: SELECT * FROM t;'
-        record = {'state': 'draft_only', 'operation': 'create', 'mode': 'MANUAL',
-                  'requested_mode': 'AUTO', 'mandatory_review_reason': 'FIRST_USE_CATALOG_ROUTE',
+        record = {'state': 'draft_only', 'operation': 'create', 'mode': 'AUTO',
+                  'requested_mode': 'AUTO', 'mandatory_review_reason': None,
                   'payload': original, 'config_file': '/private/config'}
         snapshot = copy.deepcopy(record)
         report = sr.literal_report(record)
@@ -660,7 +716,7 @@ class LiteralReportTests(unittest.TestCase):
         self.assertNotIn('key', report['sr_fields'])
         self.assertNotIn('config_file', report['execution'])
         self.assertEqual(report['execution']['source'], 'DRAFT_PAYLOAD')
-        self.assertEqual(report['execution']['mode'], 'MANUAL')
+        self.assertEqual(report['execution']['mode'], 'AUTO')
         self.assertEqual(record, snapshot)
 
     def test_get_preserves_native_keys_nulls_and_html_without_request_fallback(self):

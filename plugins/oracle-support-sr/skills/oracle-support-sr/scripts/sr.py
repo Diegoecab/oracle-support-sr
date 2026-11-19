@@ -13,6 +13,9 @@ import tempfile
 import time
 
 ROUTING_TEST_NOTICE = 'Customer-authorized API routing validation; no production incident or infrastructure action is requested.'
+# Conservative drafting budget, not a documented universal Oracle maximum.
+# Reject locally before approval or credentials; never silently truncate text.
+TITLE_MAX_LENGTH = 80
 WRITE_REVIEW_RULES = {'create': None, 'test-create': None, 'comment': None, 'attach': None, 'close': 'CASE_CLOSURE'}
 
 
@@ -85,9 +88,6 @@ def approval_preview(args, payload):
     review_reason = WRITE_REVIEW_RULES[args.operation]
     if getattr(args, 'routing_file', None):
         scope['routing_sha256'] = hashlib.sha256(Path(args.routing_file).read_bytes()).hexdigest()
-        registry = json.loads(Path(args.routing_file).read_text(encoding='utf-8-sig'))
-        if args.operation == 'create' and registry.get('status') == 'CATALOG_ONLY':
-            review_reason = 'FIRST_USE_CATALOG_ROUTE'
     if getattr(args, 'test_plan_file', None):
         scope['test_plan_sha256'] = hashlib.sha256(Path(args.test_plan_file).read_bytes()).hexdigest()
     digest = hashlib.sha256(canonical(scope).encode('utf-8')).hexdigest()
@@ -157,6 +157,8 @@ def validate_request(data):
     for field in ('title', 'description'):
         if not isinstance(ticket.get(field), str) or not ticket[field].strip():
             raise ValueError(f'ticket.{field} must be nonempty text')
+    if len(ticket['title']) > TITLE_MAX_LENGTH:
+        raise ValueError(f'Title exceeds the helper conservative {TITLE_MAX_LENGTH}-character drafting budget; shorten it without changing meaning before approval or submission (Oracle maximum is not established here)')
     if len(ticket['description']) > 1500:
         raise ValueError('Initial description exceeds 1500 characters; use a note/attachment')
     for resource in ticket.get('resourceList') or []:
@@ -189,7 +191,7 @@ def flatten_taxonomy(groups):
 
 
 def validate_routing(request, registry, catalog=None, now=None):
-    """Block unproven TECH recipes. This cannot guarantee a backend queue."""
+    """Validate selected TECH catalog routes. This cannot guarantee a backend queue."""
     status = registry.get('status')
     if registry.get('schema_version') != 1 or status not in ('VERIFIED', 'CATALOG_ONLY'):
         raise ValueError('Routing is not VERIFIED or an explicit CATALOG_ONLY first-use selection; keep a draft')
@@ -519,7 +521,7 @@ def parser():
         if name in ('create', 'test-create'):
             sub.add_argument('--request-file', required=True)
         if name == 'create':
-            sub.add_argument('--routing-file', help='VERIFIED route or explicit CATALOG_ONLY first-use selection; the latter always needs manual approval')
+            sub.add_argument('--routing-file', help='VERIFIED route or explicit CATALOG_ONLY selection; both honor the chosen mode and must match fresh taxonomy')
         if name == 'test-create':
             sub.add_argument('--test-plan-file', required=True, help='Explicitly authorized, single-case LOW routing-validation plan; never a verified production route')
         if name == 'taxonomy':

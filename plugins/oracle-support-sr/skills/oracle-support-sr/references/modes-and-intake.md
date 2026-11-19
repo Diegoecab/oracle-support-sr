@@ -18,13 +18,13 @@ En el helper se selecciona antes de la operación: `--mode AUTO`. Las escrituras
 
 ## Revisión obligatoria por riesgo
 
-Desde 0.7.0 estos controles prevalecen sobre AUTO:
+Desde 0.9.0 el primer uso del catálogo respeta el modo elegido. Estos controles siguen vigentes:
 
 | Acción | Control |
 | --- | --- |
 | Consultar, listar y preparar borradores | Lectura o trabajo local; no requiere aprobación de escritura. |
 | Crear con una ruta ya comprobada o actualizar/adjuntar dentro de un flujo AUTO autorizado | Respeta el alcance, destinatario y datos autorizados. No amplía permisos. |
-| Crear por primera vez con una ruta CATALOG_ONLY | Siempre revisión MANUAL del perfil, selección del catálogo, impacto y payload. No exige un SR previo. |
+| Crear por primera vez con una ruta CATALOG_ONLY | Respeta MANUAL o AUTO. En AUTO no pide otro OK solo por primer uso; exige selección inequívoca, datos fundamentales completos y coincidencia con la taxonomía en vivo. No exige un SR previo. |
 | Cerrar un SR | Siempre aprobación MANUAL del caso y motivo exactos, incluso en AUTO. Un OK concreto ya dado conserva su validez. |
 | Ruta con una discrepancia conocida | Se bloquea para incidentes reales hasta resolverla; no se disfraza como primer uso. |
 | Eliminar, detener o modificar infraestructura | No existe esa operación en esta skill. Requiere otro flujo con alcance, recursos, impacto y aprobación manual concretos. |
@@ -39,13 +39,19 @@ Estos controles siguen los principios de mínimo alcance, aprobación humana par
 | Dato | Tratamiento si falta o es contradictorio |
 | --- | --- |
 | Perfil/tenancy, SR destino, recurso afectado y región aplicable | Resolver mediante contexto o lectura autorizada. Si hay ambigüedad, preguntar antes de escribir. |
-| Producto, categoría/subcategoría y claves de enrutamiento | Consultar catálogo y evidencia disponible. En primer uso, CATALOG_ONLY con revisión manual; si faltan selectores importantes o hay ambigüedad, preguntar. Una coincidencia de nombre no prueba la cola. |
+| Producto, categoría/subcategoría y claves de enrutamiento | Consultar catálogo y evidencia disponible. En primer uso, CATALOG_ONLY respeta el modo elegido; si faltan selectores importantes o hay ambigüedad, preguntar. Una coincidencia de nombre no prueba la cola. |
 | Producción o prueba, alcance del impacto, indisponibilidad, pérdida de datos, urgencia y compromisos de atención | Preguntar lo necesario para la acción. No inferirlos del nombre del recurso, una alerta o la severidad deseada. |
 | Resultado de una prueba, logs, OCIDs, estado de un recurso, identidad de navegador versus API | Informar únicamente lo observado o confirmado, con fuente y fecha. No inventar resultados ni equiparar identidades. |
 | Intención de cierre, cambios de severidad o destinatarios | Obtener una instrucción explícita para esa acción. AUTO genérico no la concede. |
 | Títulos de secciones, orden de los hallazgos, nombre descriptivo del archivo y formato | Se puede elegir una opción razonable sin interrumpir el flujo. Explicitar el supuesto si ayuda a entender el resultado. |
 
 Preguntar solamente por los datos fundamentales para la acción actual. Una nota de diagnóstico puede informar una comparación de consola todavía pendiente sin inventar su resultado; la falta de ese dato no obliga a retener los hechos independientes ya comprobados. Si el dato desconocido determina cuenta, destino, impacto o contenido de la escritura, detener esa escritura y preguntar. En ambos modos, una respuesta desconocida se conserva como desconocida.
+
+## Título y correcciones acotadas
+
+El helper valida el título antes de pedir aprobación o cargar credenciales y aplica un presupuesto preventivo local de 80 caracteres. No se presenta como el máximo contractual de Oracle: la documentación revisada no publica ese número. El asistente redacta un título breve que conserve los calificadores importantes y deja la consulta completa en la descripción, sin cortar texto automáticamente.
+
+En AUTO, ajustar solo la extensión del título sin cambiar el sentido no requiere otro OK. Si Oracle devuelve HTTP 400 / INVALID_SR_TICKET_TITLE, el intento queda rejected y no hay clave de SR, conciliar los casos visibles y permitir como máximo un envío corregido cambiando solo el título. Conservar solicitud, rechazo y título final como evidencia. Un resultado incierto no habilita ese reintento. MANUAL mantiene aprobación del borrador exacto; validar antes de la primera revisión evita una confirmación adicional por límites conocidos.
 
 ## Uso interno
 

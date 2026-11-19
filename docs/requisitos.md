@@ -50,10 +50,10 @@ La skill guía al LLM para obtener contexto mediante herramientas y lecturas aut
 
 Como fuente opcional de evidencia, ADB Serverless dispone de MCP nativo; SQLcl MCP es otra alternativa. Se configuran aparte y requieren identidad, conectividad y permisos para las herramientas o consultas aprobadas. Los privilegios de tickets no los conceden.
 
-Para ejecutar un alta TECH, usar una receta VERIFIED con evidencia de clasificación persistida o una selección nueva CATALOG_ONLY del catálogo vigente. El primer uso exige revisión manual, aun en AUTO, sin requerir un SR previo. Una discrepancia conocida bloquea esa ruta; no se puede presentar como primer uso. Es un control de la skill, no un parámetro adicional del API de Oracle.
+Para ejecutar un alta TECH, usar una receta VERIFIED con evidencia de clasificación persistida o una selección nueva CATALOG_ONLY del catálogo vigente. El primer uso respeta MANUAL o AUTO, sin exigir otro OK solo por ser nuevo ni requerir un SR previo. La selección debe ser inequívoca y se valida contra la taxonomía en vivo. Una discrepancia conocida bloquea esa ruta; no se puede presentar como primer uso. Es un control de la skill, no un parámetro adicional del API de Oracle.
 
 ## Campos que no deben faltar en el caso
 
 Recurso/OCID cuando aplique, región, compartment conocido, síntoma, ventana UTC, request IDs, resultados observados, impacto, diagnóstico relevante y pedido concreto a Oracle. Seleccionar producto/categoría desde la taxonomía vigente y comprobar el enrutamiento persistido. Para OpenSearch, [SRDC1037](https://support.oracle.com/support/?kmContentId=2864665) agrega componente/subcomponente y evidencia condicional; requiere acceso autenticado.
 
-La descripción inicial se limita al contrato actual; el helper aplica 1500 caracteres. Las notas y adjuntos conservan el detalle ampliado. MEDIUM es el enum de severidad 3; LOW corresponde a orientación general. Elegir la severidad por impacto documentado. No se promete un SLA por el nombre del enum.
+El helper valida antes de la aprobación un presupuesto preventivo local de 80 caracteres para el título, sin afirmar que sea el máximo contractual de Oracle. La descripción inicial se limita a 1500 caracteres. Las notas y adjuntos conservan el detalle ampliado. MEDIUM es el enum de severidad 3; LOW corresponde a orientación general. Elegir la severidad por impacto documentado. No se promete un SLA por el nombre del enum.

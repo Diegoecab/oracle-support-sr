@@ -24,7 +24,7 @@ Wire JSON uses camelCase; SDK attributes use snake_case. The CLI create command 
 | `compartmentId` | Required | Tenancy OCID from the selected profile, despite the field name. Never substitute the affected resource's compartment. |
 | `problemType` | Required | `TECH` or `ACCOUNT` for helper creation; distinguish a technical investigation from a billing request. Other API enum values do not imply helper support. |
 | `ticket` | Required object | Contains the required title, description, and severity. |
-| `ticket.title` | Required text | Concise symptom and affected service; draft from evidence. |
+| `ticket.title` | Required text | Concise symptom and affected service; draft from evidence within the helper's conservative 80-character budget. This is a local preventive limit, not a documented universal Oracle maximum. Validate before approval; do not silently truncate. |
 | `ticket.description` | Required text | Evidence, business impact, resource/region/time, diagnostics, request IDs, and requested outcome. Helper caps the initial description at 1500 characters; use notes/attachments for the rest. That helper cap is not a claim about every Oracle portal. |
 | `ticket.severity` | Required enum | `LOW`, `MEDIUM`, `HIGH`, `HIGHEST`; use the mapping above. |
 | `userGroupId` | Optional in current API; required explicitly by this helper for TECH | Discover using `ValidateUser`; current service may select an eligible group if omitted. Explicit selection prevents unintended visibility. |

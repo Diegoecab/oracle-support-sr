@@ -45,13 +45,13 @@ Usá oracle-support-sr con el perfil MI_PERFIL para validar acceso y listar
 mis SRs visibles. Mostrá tenancy, región, estado y evidencia. No crees un SR todavía.
 ```
 
-Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedades hay?", "Agregá este diagnóstico" o "Cerralo; ya quedó resuelto". La skill reutiliza perfil y recurso del contexto y pregunta por lo relevante que falte. Una selección nueva usa el catálogo vigente y revisión manual; una discrepancia conocida bloquea esa ruta. No hace falta un SR previo ni dictar IDs opacos.
+Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedades hay?", "Agregá este diagnóstico" o "Cerralo; ya quedó resuelto". La skill reutiliza perfil y recurso del contexto y pregunta por lo relevante que falte. Una selección nueva usa el catálogo vigente y respeta MANUAL o AUTO; una discrepancia conocida bloquea esa ruta. No hace falta un SR previo ni dictar IDs opacos.
 
 ## Modos y aprobación
 
 MANUAL es el modo predeterminado: las consultas y los borradores pueden avanzar, pero antes de cada escritura muestra la acción, cuenta/SR, texto y adjuntos y espera el OK al contenido concreto. Si cambian, se revisa la nueva versión. Una aprobación de ese mismo borrador se reutiliza.
 
-AUTO se elige expresamente para un trabajo definido, por ejemplo: "Usá AUTO para responder este SR con estas comprobaciones y adjuntar el diagnóstico". Ejecuta las acciones autorizadas y vuelve a MANUAL al terminar. Cerrar un SR y crear con una selección de primer uso siempre requieren aprobación manual del borrador exacto, incluso en AUTO. Cada sesión nueva comienza en MANUAL. Estos modos no modifican los permisos propios de Codex/Claude ni conceden operaciones sobre infraestructura.
+AUTO se elige expresamente para un trabajo definido, por ejemplo: "Usá AUTO para responder este SR con estas comprobaciones y adjuntar el diagnóstico". Ejecuta las acciones autorizadas y vuelve a MANUAL al terminar. Desde 0.9.0 el primer uso de una selección inequívoca del catálogo respeta AUTO, sin otro OK. Cerrar un SR sigue requiriendo aprobación manual del borrador exacto, incluso en AUTO. Cada sesión nueva comienza en MANUAL. Estos modos no modifican los permisos propios de Codex/Claude ni conceden operaciones sobre infraestructura.
 
 En ambos modos, los datos fundamentales faltantes se preguntan. No se inventan identificadores, resultados, impacto de negocio, entorno, clasificación ni compromisos de atención. Los detalles de presentación pueden resolverse con una opción razonable. [Detalle de modos e información requerida](docs/modos.md).
 
@@ -63,7 +63,7 @@ Estas medias todavía no se midieron en un SR completo con cinco interacciones. 
 
 El piloto previo al guard de clasificación de 0.3.0 ejecutó seis operaciones automáticas en 32,062 s sobre un SR de consulta. Es tiempo de ejecución de comandos y no mide las cinco interacciones del escenario.
 
-Para un producto nuevo no hace falta un SR previo: desde 0.7.0 se puede preparar una selección CATALOG_ONLY desde el catálogo vigente, mostrar el destino esperado y pedir aprobación manual, incluso en AUTO. Una ruta VERIFIED reutiliza evidencia ya comprobada; ambas se contrastan con la taxonomía en vivo. Una discrepancia conocida sigue bloqueada para incidentes reales, como en el ejemplo OpenSearch/Backup and Restore. Los schemas se conservan y comparan, pero no se convierten en selectores del API sin un contrato comprobado. La API sí modela respuestas con categoría/subcategoría; en los SRs revisados GetIncident no pobló esos campos y ListIncidents devolvió incidentResourceType vacío. Esa es una observación de esas respuestas, no una afirmación de imposibilidad general. La clasificación persistida y la asignación interna de ingenieros se comprueban por separado. No se distribuyen rutas de clientes preaprobadas.
+Para un producto nuevo no hace falta un SR previo: se puede preparar una selección CATALOG_ONLY desde el catálogo vigente y mostrar el destino solicitado. Desde 0.9.0 respeta MANUAL o AUTO, sin imponer otro OK por primer uso. Una ruta VERIFIED reutiliza evidencia ya comprobada; ambas se contrastan con la taxonomía en vivo. Una discrepancia conocida sigue bloqueada para incidentes reales, como en el ejemplo OpenSearch/Backup and Restore. Los schemas se conservan y comparan, pero no se convierten en selectores del API sin un contrato comprobado. La API sí modela respuestas con categoría/subcategoría; en los SRs revisados GetIncident no pobló esos campos y ListIncidents devolvió incidentResourceType vacío. Esa es una observación de esas respuestas, no una afirmación de imposibilidad general. La clasificación persistida y la asignación interna de ingenieros se comprueban por separado. No se distribuyen rutas de clientes preaprobadas.
 
 ## Documentación y requisitos
 
