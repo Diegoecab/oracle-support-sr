@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.8.1. Revisión: 19/11/2026.
+Versión 0.8.2. Revisión: 19/11/2026.
 
 Escenario estimativo: un SR con cinco interacciones, 30 minutos por consola o 5 con la skill por interacción; totales de 150 y 25 minutos. Ahorro estimado de 125 minutos (83 %). No es un benchmark del servicio ni incluye esperas de Oracle, configuración inicial o investigación compleja.
 
@@ -336,12 +336,14 @@ Las actualizaciones agregan correspondencia. No reescriben ni eliminan notas ant
 
 ## Qué recibe el usuario después de cada operación
 
-La skill informa el número del SR con su enlace, título y descripción del caso, además del resultado de la operación. Si la descripción es extensa, presenta un resumen fiel y deja disponible el texto exacto recuperado. No alcanza con mostrar el número del SR o un HTTP 200.
+La skill muestra un bloque JSON con los campos literales: número del SR, título y descripción completa, además de los datos devueltos del caso. Conserva el idioma, texto, nombres de campos, enums y saltos de línea originales; no los traduce ni resume. Una explicación breve puede acompañar al bloque, sin reemplazarlo. No alcanza con mostrar el número del SR o un HTTP 200.
+
+La estructura separa execution de sr_fields y declara la fuente: DRAFT_PAYLOAD para el borrador, API_RESPONSE para la respuesta de una llamada, GET_RESPONSE para el caso recuperado o CACHED_RECEIPT para un recibo anterior. También se aplica a borradores y envíos bloqueados. Un borrador no tiene número de SR creado ni estado persistido; no se inventan ni se completan con otros datos. Después de escribir se muestra la lectura posterior, manteniendo los campos ausentes como ausentes. El cambio enviado y la clasificación solicitada se identifican por separado de lo realmente recuperado.
 
 | Operación | Datos que incluye la respuesta |
 | --- | --- |
 | Creación | SR y enlace, título, descripción, tipo, severidad, estado, recurso/región pertinentes y clasificación solicitada frente a la realmente comprobada. |
-| Actualización | Identidad y descripción del caso, resumen de la nota publicada o campos modificados, valores anteriores/nuevos cuando estén disponibles y estado posterior. Agregar correspondencia no equivale a modificar otros campos. |
+| Actualización | Identidad y descripción literal del caso, texto exacto de la nota publicada o campos modificados, valores literales anteriores/nuevos cuando estén disponibles y estado posterior. Agregar correspondencia no equivale a modificar otros campos. |
 | Adjunto | Identidad y descripción del caso, nombres de archivos, restricción de acceso y estado de procesamiento devuelto. |
 | Cierre | Identidad y descripción del caso, motivo o nota de cierre y estado obtenido al verificar. Pedir el cierre no prueba que ya esté CLOSED; no elimina el historial. |
 

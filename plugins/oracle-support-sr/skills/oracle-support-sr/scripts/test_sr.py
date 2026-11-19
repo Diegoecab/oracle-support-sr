@@ -634,5 +634,79 @@ class SafetyTests(unittest.TestCase):
             sr.model_from_wire(oci, 'CreateIncident', dict(REQUEST, inventedField='ignored?'))
 
 
+class LiteralReportTests(unittest.TestCase):
+    def test_approval_block_exposes_draft_fields_without_loading_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'request.json'
+            path.write_text(json.dumps(REQUEST), encoding='utf-8')
+            with patch.object(sr, 'Support', side_effect=AssertionError('No credentials needed')):
+                with self.assertRaises(sr.ApprovalRequired) as caught:
+                    sr.main(['--profile', 'FIXTURE', '--evidence-dir', folder,
+                             'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
+            report = caught.exception.user_report
+            self.assertEqual(report['sr_fields']['ticket'], REQUEST['ticket'])
+            self.assertEqual(report['execution']['source'], 'DRAFT_PAYLOAD')
+            self.assertTrue(report['execution']['approval_required'])
+
+    def test_draft_keeps_unicode_and_full_original_description(self):
+        original = copy.deepcopy(REQUEST)
+        original['ticket']['description'] = 'Original English question.\n\nCaf\u00e9, SQL: SELECT * FROM t;'
+        record = {'state': 'draft_only', 'operation': 'create', 'mode': 'MANUAL',
+                  'requested_mode': 'AUTO', 'mandatory_review_reason': 'FIRST_USE_CATALOG_ROUTE',
+                  'payload': original, 'config_file': '/private/config'}
+        snapshot = copy.deepcopy(record)
+        report = sr.literal_report(record)
+        self.assertEqual(report['sr_fields']['ticket'], original['ticket'])
+        self.assertNotIn('key', report['sr_fields'])
+        self.assertNotIn('config_file', report['execution'])
+        self.assertEqual(report['execution']['source'], 'DRAFT_PAYLOAD')
+        self.assertEqual(report['execution']['mode'], 'MANUAL')
+        self.assertEqual(record, snapshot)
+
+    def test_get_preserves_native_keys_nulls_and_html_without_request_fallback(self):
+        ticket = {'title': 'Exact title', 'description': '<p>English\ntext</p>',
+                  'lifecycle_state': 'ACTIVE', 'lifecycle_details': None}
+        record = {'operation': 'get', 'status': 200, 'data': {'key': 'fixture-key', 'ticket': ticket},
+                  'payload': {'ticket': {'description': 'Different unsaved draft'}}}
+        report = sr.literal_report(record)
+        self.assertEqual(report['sr_fields']['ticket'], ticket)
+        self.assertEqual(report['execution']['source'], 'GET_RESPONSE')
+        self.assertNotIn('severity', report['sr_fields']['ticket'])
+
+    def test_write_acceptance_does_not_invent_persisted_state_or_use_draft(self):
+        record = {'operation': 'create', 'status': 200, 'write_state': 'success',
+                  'data': {'key': 'fixture-key'}, 'payload': REQUEST}
+        report = sr.literal_report(record)
+        self.assertEqual(report['sr_fields'], {'key': 'fixture-key'})
+        self.assertEqual(report['execution']['source'], 'API_RESPONSE')
+
+    def test_report_keeps_returned_classification_and_excludes_activity_history(self):
+        tech = {'region': 'IAD', 'item': {'type': 'tech', 'category': {'categoryKey': 'returned-key'}}}
+        activity = {'item': {'type': 'activity', 'comments': 'Long private correspondence'}}
+        report = sr.literal_report({'operation': 'get', 'data': {'ticket': {
+            'description': 'Exact description', 'resourceList': [activity, tech]}}})
+        self.assertEqual(report['sr_fields']['ticket']['resourceList'], [tech])
+        self.assertNotIn('classification_evidence', report)
+
+    def test_cached_receipt_is_not_reported_as_fresh_api_response(self):
+        result = {'operation': 'create', 'status': 200, 'data': {'key': 'fixture-key'}}
+        report = sr.literal_report({'result': result, 'reused_receipt': True})
+        self.assertEqual(report['execution']['source'], 'CACHED_RECEIPT')
+        self.assertEqual(report['sr_fields']['key'], 'fixture-key')
+
+    def test_main_draft_includes_literal_report_without_loading_credentials(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'request.json'
+            path.write_text(json.dumps(REQUEST), encoding='utf-8')
+            out = io.StringIO()
+            with patch.object(sr, 'Support', side_effect=AssertionError('No credentials needed')), contextlib.redirect_stdout(out):
+                result = sr.main(['--profile', 'FIXTURE', '--evidence-dir', folder,
+                                  'create', '--request-file', str(path), '--expected-tenancy', TENANCY])
+            self.assertEqual(result, 0)
+            report = json.loads(out.getvalue())['user_report']
+            self.assertEqual(report['sr_fields']['ticket'], REQUEST['ticket'])
+            self.assertEqual(report['execution']['source'], 'DRAFT_PAYLOAD')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -20,6 +20,52 @@ def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
 
 
+def literal_report(record):
+    """Select original field values for display, without translation or fallback.
+
+    Keep provenance separate: a draft, write response and retrieved case are
+    different sources. This view never certifies persistence or routing.
+    """
+    cached = record.get('reused_receipt') is True
+    source = record.get('result', {}) if cached else record
+    draft = source.get('state') == 'draft_only'
+    data = source.get('payload' if draft else 'data')
+    data = data if isinstance(data, dict) else {}
+    execution_keys = ('operation', 'profile', 'backend', 'state', 'mode',
+                      'requested_mode', 'mandatory_review_reason',
+                      'approval_required', 'status', 'execution_mode',
+                      'requested_execution_mode', 'at_utc', 'write_state',
+                      'error_type', 'message')
+    execution = {k: source[k] for k in execution_keys if k in source}
+    execution['source'] = ('CACHED_RECEIPT' if cached else 'DRAFT_PAYLOAD' if draft
+                           else 'GET_RESPONSE' if source.get('operation') == 'get'
+                           else 'API_RESPONSE')
+    fields = {k: data[k] for k in ('id', 'key', 'problemType', 'problem_type', 'problem-type') if k in data}
+    ticket = data.get('ticket')
+    if isinstance(ticket, dict):
+        # Preserve field names/values, excluding the entire correspondence
+        # history from the compact view. The original response remains intact.
+        fields['ticket'] = dict(ticket) if draft else {
+            k: v for k, v in ticket.items()
+            if k not in ('resourceList', 'resource_list', 'resource-list')
+        }
+        if not draft:
+            for name in ('resourceList', 'resource_list', 'resource-list'):
+                resources = ticket.get(name)
+                if isinstance(resources, list):
+                    structured = [r for r in resources if isinstance(r, dict)
+                                  and isinstance(r.get('item'), dict)
+                                  and r['item'].get('type') != 'activity']
+                    if structured:
+                        fields['ticket'][name] = structured
+    report = {'execution': execution, 'sr_fields': fields}
+    if draft and source.get('operation') == 'attach':
+        report['outgoing_attachment'] = data
+    if isinstance(source.get('routing'), dict):
+        report['classification_evidence'] = source['routing']
+    return report
+
+
 def approval_preview(args, payload):
     """Bind confirmation to the action, account selectors and exact outgoing data.
 
@@ -50,6 +96,12 @@ def approval_preview(args, payload):
             'requested_mode': args.mode, 'mandatory_review_reason': review_reason,
             'approval_required': effective_mode == 'MANUAL',
             'approval_digest': digest, **scope}
+
+
+class ApprovalRequired(ValueError):
+    def __init__(self, message, preview):
+        super().__init__(message)
+        self.user_report = literal_report(preview)
 
 
 def format_note(text, mode='readable'):
@@ -511,11 +563,12 @@ def main(argv=None):
     preview = approval_preview(args, payload) if mutation else None
     if mutation:
         if not args.execute:
+            preview['user_report'] = literal_report(preview)
             print(json.dumps(preview, indent=2, ensure_ascii=True))
             return 0
         if preview['approval_required'] and args.approval_digest != preview['approval_digest']:
             reason = preview.get('mandatory_review_reason') or 'DEFAULT_MANUAL'
-            raise ValueError('MANUAL requires user approval of this exact draft and its --approval-digest (' + reason + '); missing or changed approval, no write sent')
+            raise ApprovalRequired('MANUAL requires user approval of this exact draft and its --approval-digest (' + reason + '); missing or changed approval, no write sent', preview)
     service = Support(args)
     if mutation and service.tenancy != args.expected_tenancy:
         raise ValueError('Profile tenancy differs from expected tenancy; no write sent')
@@ -567,7 +620,9 @@ def main(argv=None):
         test_identity = {'operation': 'test-create', 'tenancy': service.tenancy, 'test_id': test_plan['test_id']} if test_plan else None
         path, record, send = begin_attempt(evidence / 'attempts', args.operation, scope, identity=test_identity)
         if not send:
-            print(json.dumps(dict(record, reused_receipt=True), indent=2))
+            reused = dict(record, reused_receipt=True)
+            reused['user_report'] = literal_report(reused)
+            print(json.dumps(reused, indent=2))
             return 0
         attempt = path, record
     start = time.monotonic()
@@ -599,6 +654,8 @@ def main(argv=None):
         receipt = finish_attempt(*attempt, result)
         result['receipt'] = str(attempt[0])
         result['write_state'] = receipt['state']
+    if mutation or args.operation == 'get':
+        result['user_report'] = literal_report(result)
     stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     (evidence / f'{stamp}-{args.backend}-{args.operation}.json').write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
     # Keep stdout valid JSON on Windows legacy console encodings as well as UTF-8.
@@ -611,5 +668,8 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except (ValueError, RuntimeError, OSError) as exc:
-        print(json.dumps({'error_type': type(exc).__name__, 'message': str(exc)}), file=sys.stderr)
+        error = {'error_type': type(exc).__name__, 'message': str(exc)}
+        if isinstance(exc, ApprovalRequired):
+            error['user_report'] = exc.user_report
+        print(json.dumps(error), file=sys.stderr)
         sys.exit(2)
