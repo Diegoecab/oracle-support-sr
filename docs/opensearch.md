@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.2. Revisión: 20/11/2026.
+Versión 0.9.3. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -9,6 +9,8 @@ Los Service Requests (SRs) de **OCI Search Service with OpenSearch** pueden gest
 Para reducir las tareas repetitivas de apertura y seguimiento, desarrollamos [oracle-support-sr](https://github.com/Diegoecab/oracle-support-sr), una skill compatible con **Codex y Claude Code**. El piloto demuestra cómo gestionar un SR con pedidos en lenguaje natural, reutilizar el contexto disponible y mantener una salida legible con evidencia de cada operación.
 
 Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
+
+
 
 **Documentación oficial de Oracle**
 

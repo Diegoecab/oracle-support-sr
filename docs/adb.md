@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.2. Revisión: 20/11/2026.
+Versión 0.9.3. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -9,6 +9,8 @@ Los Service Requests (SRs) de **Autonomous Database Serverless** pueden gestiona
 Para reducir las tareas repetitivas de apertura y seguimiento, desarrollamos [oracle-support-sr](https://github.com/Diegoecab/oracle-support-sr), una skill compatible con **Codex y Claude Code**. El piloto demuestra cómo gestionar un SR con pedidos en lenguaje natural, reutilizar el contexto disponible y mantener una salida legible con evidencia de cada operación.
 
 Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
+
+**Diagnósticos para el SR.** El flujo puede complementarse con el [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) y herramientas Select AI Agent configuradas y autorizadas para recuperar diagnósticos, incluidos [datos de errores accesibles al cliente](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html), y preparar evidencia para adjuntar al SR. Para [reportes AWR](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html), Oracle documenta su generación y descarga mediante Performance Hub; su obtención por MCP se plantea como una integración que requiere preparar y validar una herramienta específica. Esta ampliación se configura por separado de la skill de SRs.
 
 **Documentación oficial de Oracle**
 
@@ -279,6 +281,13 @@ Autonomous Database Serverless dispone de un [MCP nativo administrado](https://d
 | MCP nativo de la base | Endpoint por base; herramientas autorizadas expuestas mediante Select AI Agent. Revisar los prerrequisitos y permisos de cada herramienta. |
 | SQLcl MCP | Otra alternativa para una conexión guardada y consultas de diagnóstico aprobadas. Se configura y autentica por separado. |
 
+| Evidencia | Alcance documentado y preparación necesaria |
+| --- | --- |
+| Errores y datos de logs accesibles al cliente | Oracle documenta la consulta de V$CLIENT_ERRORS. Para invocarla por MCP debe existir una herramienta autorizada con acceso a esa vista. Esto no equivale a descargar todos los logs internos de Oracle. |
+| Reportes AWR | Oracle documenta su generación y descarga en Performance Hub. La obtención por MCP se propone como una integración que requiere una herramienta específica, permisos y validación de ventana/snapshots y exportación del archivo. No se encontró una herramienta AWR preconfigurada en la documentación del MCP nativo consultada. |
+
+Las fuentes son [Use MCP Server](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html), [Query for Client Errors](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html) y [AWR en Performance Hub](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html). Para ADB Serverless, la [nota de Oracle](https://docs.oracle.com/en-us/iaas/releasenotes/autonomous-database-serverless/2025-07-query-for-client-errors.htm) indica que V$DIAG_ALERT_EXT no está disponible para datos del alert log y remite a V$CLIENT_ERRORS.
+
 Usar únicamente herramientas de diagnóstico autorizadas y conexiones ya disponibles. Activar el MCP, crear herramientas, cambiar grants o habilitar servicios son tareas separadas; la instalación de la skill no las ejecuta. Configurar permisos y aprobaciones del cliente MCP aparte de los del plugin de SRs.
 
 Revisar y filtrar los resultados antes de una nota o adjunto: SQL, literales y datos pueden contener información de negocio. No adjuntar credenciales ni wallets. Si la base es inaccesible, el MCP no elimina ese bloqueo; reunir evidencia del control plane y de las fuentes que sí estén disponibles. La conexión mediante estos MCPs no se probó durante el piloto de gestión de SRs.
@@ -396,6 +405,10 @@ Referencias: [agregar comentarios](https://docs.oracle.com/en-us/iaas/Content/GS
 - [MCP nativo: Use MCP Server](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html)
 - [Prerrequisitos del MCP](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/prerequisites.html)
 - [Configuración de herramientas integradas](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-tools.html)
+- [Errores consultables: V$CLIENT_ERRORS](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html)
+- [Cambio de acceso a datos del alert log en ADB Serverless](https://docs.oracle.com/en-us/iaas/releasenotes/autonomous-database-serverless/2025-07-query-for-client-errors.htm)
+- [Generación y descarga de AWR mediante Performance Hub](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html)
+- [Blog oficial: observabilidad, AWR y SQL trace en ADB Serverless](https://blogs.oracle.com/autonomous-ai-database/autonomous-database-serverless-observability-for-adbs)
 - [SQLcl MCP oficial](https://docs.oracle.com/en/database/oracle/sql-developer-command-line/25.4/sqcug/using-oracle-sqlcl-mcp-server.html)
 - [Restricciones de SQLcl MCP](https://docs.oracle.com/en/database/oracle/sql-developer-command-line/25.4/sqcug/configuring-restrict-levels-sqlcl-mcp-server.html)
 - [Blog oficial SQLcl MCP](https://blogs.oracle.com/ai-and-datascience/ai-driven-sql-made-simple-with-oracle-sqlcl-mcp-server)
