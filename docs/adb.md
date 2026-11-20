@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.11. Revisión: 20/11/2026.
+Versión 0.9.12. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -24,19 +24,20 @@ Creá un SR por la lentitud de esta ADB. Es un entorno de pruebas, sin impacto p
 
 **Salida ilustrativa del asistente**
 
-**SR:** SR_DEL_EJEMPLO
+```text
+SR: SR_DEL_EJEMPLO
+Título: ADB Serverless: slow response times in non-production
+Tipo: TECH
+Severidad: LOW
+Estado: ACTIVE / PENDING_WITH_ORACLE
 
-**Título:** ADB Serverless: slow response times in non-production
-
-**Tipo:** TECH · **Severidad:** LOW · **Estado:** ACTIVE / PENDING_WITH_ORACLE
-
-**Descripción del SR**
-
+Descripción del SR
 Response times increased in a non-production Autonomous Database Serverless instance during the incident window. No production impact is reported.
 
 We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
 
-**Resultado:** SR creado y consultado para comprobar su contenido.
+Resultado: SR creado y consultado para comprobar su contenido.
+```
 
 #### Actualizar el SR y adjuntar evidencia
 
@@ -48,29 +49,31 @@ Flujo AWR esperado: ejecución por Database Management pendiente de validación 
 
 **Salida ilustrativa del asistente**
 
-**SR:** SR_DEL_EJEMPLO
+```text
+SR: SR_DEL_EJEMPLO
+Título: ADB Serverless: slow response times in non-production
+Tipo: TECH
+Severidad: LOW
+Estado: ACTIVE / PENDING_WITH_ORACLE
 
-**Título:** ADB Serverless: slow response times in non-production
-
-**Tipo:** TECH · **Severidad:** LOW · **Estado:** ACTIVE / PENDING_WITH_ORACLE
-
-**Descripción del SR**
-
+Descripción del SR
 Response times increased in a non-production Autonomous Database Serverless instance during the incident window. No production impact is reported.
 
 We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
 
-**Obtención del AWR:** Database Management · GetAwrDbReport · HTML
+Obtención del AWR: Database Management · GetAwrDbReport · HTML
+Ventana del reporte: 2026-01-15 10:00–11:00 UTC
 
-**Ventana del reporte:** 2026-01-15 10:00–11:00 UTC
+Adjunto: awr.html
+Tamaño: 256 KiB
+Acceso: restringido
+Estado del adjunto: RECEIVED
 
-**Adjunto:** awr.html · 256 KiB · Restringido · RECEIVED
-
-**Nota publicada**
-
+Nota publicada
 Attached awr.html, obtained through the Database Management GetAwrDbReport API for the affected database. The report covers 2026-01-15 10:00 to 11:00 UTC. Please review the AWR evidence and recommend the next diagnostic steps.
 
-**Verificación:** nota y recepción del archivo confirmadas al consultar el SR.
+Verificación: nota y recepción del archivo confirmadas al consultar el SR.
+```
 
 #### Cerrar el SR
 
@@ -82,23 +85,23 @@ Antes del cierre, el asistente muestra el motivo y pide el OK manual, incluso en
 
 **Salida ilustrativa del asistente**
 
-**SR:** SR_DEL_EJEMPLO
+```text
+SR: SR_DEL_EJEMPLO
+Título: ADB Serverless: slow response times in non-production
+Tipo: TECH
+Severidad: LOW
+Estado: CLOSED
 
-**Título:** ADB Serverless: slow response times in non-production
-
-**Tipo:** TECH · **Severidad:** LOW · **Estado:** CLOSED
-
-**Descripción del SR**
-
+Descripción del SR
 Response times increased in a non-production Autonomous Database Serverless instance during the incident window. No production impact is reported.
 
 We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
 
-**Motivo publicado**
-
+Motivo publicado
 The issue has been resolved and the result validated in the non-production environment. Please close this service request.
 
-**Verificación:** cierre confirmado al consultar el SR; el historial se conserva.
+Verificación: cierre confirmado al consultar el SR; el historial se conserva.
+```
 
 **Documentación oficial de Oracle**
 

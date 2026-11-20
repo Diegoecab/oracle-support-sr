@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.11. Revisión: 20/11/2026.
+Versión 0.9.12. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -24,19 +24,20 @@ Creá un SR por la latencia de búsqueda de este cluster. Es un entorno de prueb
 
 **Salida ilustrativa del asistente**
 
-**SR:** SR_DEL_EJEMPLO
+```text
+SR: SR_DEL_EJEMPLO
+Título: OpenSearch: search latency in a non-production cluster
+Tipo: TECH
+Severidad: LOW
+Estado: ACTIVE / PENDING_WITH_ORACLE
 
-**Título:** OpenSearch: search latency in a non-production cluster
-
-**Tipo:** TECH · **Severidad:** LOW · **Estado:** ACTIVE / PENDING_WITH_ORACLE
-
-**Descripción del SR**
-
+Descripción del SR
 Search latency increased in a non-production cluster during the incident window. No production impact is reported.
 
 We will provide the relevant cluster logs. Please investigate and advise on the next diagnostic steps.
 
-**Resultado:** SR creado y consultado para comprobar su contenido.
+Resultado: SR creado y consultado para comprobar su contenido.
+```
 
 #### Actualizar el SR y adjuntar evidencia
 
@@ -46,27 +47,30 @@ Adjuntá cluster-logs.txt al SR y publicá una actualización con el contexto de
 
 **Salida ilustrativa del asistente**
 
-**SR:** SR_DEL_EJEMPLO
+```text
+SR: SR_DEL_EJEMPLO
+Título: OpenSearch: search latency in a non-production cluster
+Tipo: TECH
+Severidad: LOW
+Estado: ACTIVE / PENDING_WITH_ORACLE
 
-**Título:** OpenSearch: search latency in a non-production cluster
-
-**Tipo:** TECH · **Severidad:** LOW · **Estado:** ACTIVE / PENDING_WITH_ORACLE
-
-**Descripción del SR**
-
+Descripción del SR
 Search latency increased in a non-production cluster during the incident window. No production impact is reported.
 
 We will provide the relevant cluster logs. Please investigate and advise on the next diagnostic steps.
 
-**Origen del archivo:** Logs del cluster disponibles en el contexto autorizado.
+Origen del archivo: Logs del cluster disponibles en el contexto autorizado.
 
-**Adjunto:** cluster-logs.txt · 48 KiB · Restringido · RECEIVED
+Adjunto: cluster-logs.txt
+Tamaño: 48 KiB
+Acceso: restringido
+Estado del adjunto: RECEIVED
 
-**Nota publicada**
-
+Nota publicada
 Attached cluster-logs.txt with the log entries collected for the incident window. Please correlate this evidence with the reported search latency and advise on the next diagnostic steps.
 
-**Verificación:** nota y recepción del archivo confirmadas al consultar el SR.
+Verificación: nota y recepción del archivo confirmadas al consultar el SR.
+```
 
 #### Cerrar el SR
 
@@ -78,23 +82,23 @@ Antes del cierre, el asistente muestra el motivo y pide el OK manual, incluso en
 
 **Salida ilustrativa del asistente**
 
-**SR:** SR_DEL_EJEMPLO
+```text
+SR: SR_DEL_EJEMPLO
+Título: OpenSearch: search latency in a non-production cluster
+Tipo: TECH
+Severidad: LOW
+Estado: CLOSED
 
-**Título:** OpenSearch: search latency in a non-production cluster
-
-**Tipo:** TECH · **Severidad:** LOW · **Estado:** CLOSED
-
-**Descripción del SR**
-
+Descripción del SR
 Search latency increased in a non-production cluster during the incident window. No production impact is reported.
 
 We will provide the relevant cluster logs. Please investigate and advise on the next diagnostic steps.
 
-**Motivo publicado**
-
+Motivo publicado
 The issue has been resolved and the result validated in the non-production environment. Please close this service request.
 
-**Verificación:** cierre confirmado al consultar el SR; el historial se conserva.
+Verificación: cierre confirmado al consultar el SR; el historial se conserva.
+```
 
 **Documentación oficial de Oracle**
 
