@@ -1,5 +1,5 @@
 {
-  "version": "0.9.7",
+  "version": "0.9.8",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
@@ -79,5 +79,8 @@
   "customer_prompt_console_style": "CODEX_CLAUDE",
   "customer_prompt_copy_button": true,
   "customer_prompt_browser_scenarios_passed": 4,
-  "customer_prompt_clipboard_fallback_verified": true
+  "customer_prompt_clipboard_fallback_verified": true,
+  "customer_summary_lifecycle_examples_per_service": 3,
+  "customer_summary_examples_are_fictional": true,
+  "customer_summary_examples_before_official_documentation": true
 }

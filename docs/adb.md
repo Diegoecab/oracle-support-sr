@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.7. Revisión: 20/11/2026.
+Versión 0.9.8. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -11,6 +11,94 @@ Para reducir las tareas repetitivas de apertura y seguimiento, desarrollamos [or
 Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
 
 **Un plus en ADB: del AWR al SR con menos pasos.** El asistente obtiene el reporte mediante la [API de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report) y usa la skill para adjuntarlo y actualizar el caso. Resuelve por API los identificadores y snapshots, guarda el HTML y comprueba la recepción; el usuario no prepara archivos SQL ni copia parámetros. El [flujo de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) requiere Diagnostics & Management configurado y permanece fuera de la skill de SRs. El [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) puede aportar otros diagnósticos mediante herramientas autorizadas. El [beneficio adicional del AWR](#plus-awr) se evalúa aparte del escenario estimativo del 83 %; la ejecución de esta vía aún está pendiente de validación operativa.
+
+### Tres ejemplos: del pedido al resultado
+
+Ejemplos ilustrativos con datos ficticios; no son salidas de operaciones ejecutadas. El recurso y el perfil ya están identificados. La actualización y el cierre usan el mismo SR creado en el primer ejemplo. Las salidas muestran el resultado posterior a las aprobaciones y a la verificación por API.
+
+#### Crear el SR
+
+```prompt
+Creá un SR por la lentitud de esta ADB. Es un entorno de pruebas, sin impacto productivo.
+```
+
+**Salida ilustrativa del asistente**
+
+**SR:** SR_DEL_EJEMPLO
+
+**Título:** ADB Serverless: slow response times in non-production
+
+**Tipo:** TECH · **Severidad:** LOW · **Estado:** ACTIVE / PENDING_WITH_ORACLE
+
+**Descripción del SR**
+
+Response times increased in a non-production Autonomous Database Serverless instance during the incident window. No production impact is reported.
+
+We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
+
+**Resultado:** SR creado y consultado para comprobar su contenido.
+
+#### Actualizar el SR y adjuntar evidencia
+
+```prompt
+Obtené el AWR del período del incidente por Database Management, adjuntalo al SR y publicá la actualización.
+```
+
+Flujo AWR esperado: ejecución por Database Management pendiente de validación operativa; se obtiene el reporte por API antes del upload.
+
+**Salida ilustrativa del asistente**
+
+**SR:** SR_DEL_EJEMPLO
+
+**Título:** ADB Serverless: slow response times in non-production
+
+**Tipo:** TECH · **Severidad:** LOW · **Estado:** ACTIVE / PENDING_WITH_ORACLE
+
+**Descripción del SR**
+
+Response times increased in a non-production Autonomous Database Serverless instance during the incident window. No production impact is reported.
+
+We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
+
+**Obtención del AWR:** Database Management · GetAwrDbReport · HTML
+
+**Ventana del reporte:** 2026-01-15 10:00–11:00 UTC
+
+**Adjunto:** awr.html · 256 KiB · Restringido · RECEIVED
+
+**Nota publicada**
+
+Attached awr.html, obtained through the Database Management GetAwrDbReport API for the affected database. The report covers 2026-01-15 10:00 to 11:00 UTC. Please review the AWR evidence and recommend the next diagnostic steps.
+
+**Verificación:** nota y recepción del archivo confirmadas al consultar el SR.
+
+#### Cerrar el SR
+
+```prompt
+Cerrá el SR; ya validamos que quedó resuelto.
+```
+
+Antes del cierre, el asistente muestra el motivo y pide el OK manual, incluso en AUTO. La salida representa el resultado posterior a esa aprobación.
+
+**Salida ilustrativa del asistente**
+
+**SR:** SR_DEL_EJEMPLO
+
+**Título:** ADB Serverless: slow response times in non-production
+
+**Tipo:** TECH · **Severidad:** LOW · **Estado:** CLOSED
+
+**Descripción del SR**
+
+Response times increased in a non-production Autonomous Database Serverless instance during the incident window. No production impact is reported.
+
+We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
+
+**Motivo publicado**
+
+The issue has been resolved and the result validated in the non-production environment. Please close this service request.
+
+**Verificación:** cierre confirmado al consultar el SR; el historial se conserva.
 
 **Documentación oficial de Oracle**
 
