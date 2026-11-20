@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.4. Revisión: 20/11/2026.
+Versión 0.9.5. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -10,7 +10,7 @@ Para reducir las tareas repetitivas de apertura y seguimiento, desarrollamos [or
 
 Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
 
-**Diagnósticos para el SR.** Se pueden obtener AWR mediante [REST-Enabled SQL](https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/26.2/orddg/rest-enabled-sql-service.html) y DBMS_WORKLOAD_REPOSITORY con una identidad de base autorizada; el [ejemplo de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) incluye los comandos. Otra alternativa es la [API de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report), con sus requisitos, o la descarga desde Performance Hub. El [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) puede aportar diagnósticos mediante herramientas configuradas y autorizadas. La recolección se configura por separado; la skill de SRs adjunta la evidencia obtenida.
+**Un plus en ADB: del AWR al SR con menos pasos.** Si el equipo todavía obtiene los reportes desde el portal y los adjunta a mano, automatizar ese recorrido puede reducir trabajo adicional en los seguimientos. El [ejemplo con comandos](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) obtiene el AWR mediante [REST-Enabled SQL](https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/26.2/orddg/rest-enabled-sql-service.html) y usa la skill para subirlo y actualizar el caso. La [API de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report) es otra alternativa, con sus requisitos. El [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) también puede aportar diagnósticos mediante herramientas configuradas y autorizadas. La recolección se configura por separado de la skill. El [beneficio adicional del AWR](#plus-awr) se evalúa aparte del escenario estimativo del 83 %.
 
 **Documentación oficial de Oracle**
 
@@ -30,6 +30,33 @@ Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo p
 | Skill en Codex / Claude | 5 min | 5 × 5 min | 25 min |
 
 Ahorro estimado frente a la consola: 150 − 25 = 125 minutos (2 h 5 min), aproximadamente un 83 %. Frente al CLI / SDK manual: 50 minutos. Son supuestos para comparar formas de trabajar; falta medir cinco gestiones comparables de un SR completo. Se cuenta tiempo activo y se excluyen esperas de Oracle, configuración inicial e investigación compleja.
+
+<a id="plus-awr"></a>
+
+## Un plus en ADB: automatizar el AWR y adjuntarlo al SR
+
+Si el equipo todavía genera y descarga los AWR desde el portal y después los carga a mano en Oracle Support, hay otra oportunidad de reducir el tiempo dedicado al SR.
+
+| Trabajo del seguimiento | Qué puede automatizar el flujo |
+| --- | --- |
+| Preparar el diagnóstico | Recuperar el contexto disponible y consultar los snapshots de la PDB para la ventana solicitada. Preguntar por los datos fundamentales que falten. |
+| Generar y obtener el reporte | Ejecutar la API autorizada, guardar el HTML completo y comprobar base, intervalo y contenido. |
+| Entregar la evidencia | Usar oracle-support-sr para adjuntar el archivo, publicar la actualización y consultar el estado del envío. |
+
+El beneficio está en reducir pasos manuales y reutilizar el contexto entre la base y el SR. Si el equipo ya automatiza la obtención del AWR, puede aprovechar ese proceso y sumar la carga y el seguimiento del caso con la skill. La recolección de AWR permanece fuera de oracle-support-sr.
+
+El ciclo AWR completo puede superar los cinco minutos por gestión usados en el ejemplo. El ahorro potencial adicional se evalúa por separado del 83 %; todavía no tiene un porcentaje medido.
+
+<details>
+<summary>Mediciones del piloto y cómo calcular el ahorro</summary>
+
+En el piloto, un reporte de unos 311 KB tardó aproximadamente 6 segundos en generarse y descargarse; la llamada de upload al SR tardó aproximadamente 5 segundos. Son mediciones parciales de ese archivo, no el tiempo total de una actualización con AWR. Excluyen la preparación, la configuración, la captura de snapshots, la revisión y la espera de procesamiento del adjunto.
+
+El acceso, la selección de snapshots, la generación, la revisión del archivo, el upload y su procesamiento tienen tiempos propios. El ahorro potencial adicional puede ser mayor para un equipo que hoy hace estos pasos manualmente. Para cuantificarlo, comparar el mismo seguimiento con y sin automatización: registrar por separado el tiempo activo de la persona y el tiempo transcurrido hasta confirmar el adjunto recibido. El escenario del 83 % conserva sus supuestos.
+
+</details>
+
+[Ver el ejemplo y los comandos de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md).
 
 ## Qué cubre esta guía
 

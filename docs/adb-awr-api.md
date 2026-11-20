@@ -4,6 +4,14 @@ El ejemplo separa dos tareas: obtener el reporte mediante una API de la base y u
 
 Se ejecutó con ADB Serverless Always Free 19c mediante ORDS REST-Enabled SQL, sin habilitar Database Management. La generación y descarga del HTML completo tardó aproximadamente 6 segundos; ese tiempo no incluye aprovisionamiento, configuración de diagnósticos, captura de snapshots ni trabajo del asistente. La disponibilidad y los privilegios deben comprobarse para cada base.
 
+## Un beneficio adicional para el seguimiento
+
+Para un equipo que hoy obtiene y adjunta el AWR manualmente, automatizar la recolección y la actualización del SR puede reducir trabajo adicional: recuperar el contexto, elegir la ventana, descargar el reporte, localizar el archivo, cargarlo y comprobar su recepción. Si ya existe una recolección automatizada, se puede reutilizar y sumar la gestión del caso con la skill.
+
+En el piloto, la llamada de upload tardó aproximadamente 5 segundos para el reporte de unos 311 KB. Esa medición y los 6 segundos de generación/descarga son parciales. El ciclo completo incluye preparación, acceso, snapshots, revisión del contenido y espera de procesamiento; puede superar los cinco minutos por gestión del escenario de referencia.
+
+El ahorro potencial de automatizar AWR se evalúa por separado del 83 % estimativo de la guía. Para medirlo, comparar el mismo seguimiento con y sin automatización, distinguiendo tiempo activo de la persona y tiempo transcurrido hasta confirmar RECEIVED. Todavía no hay una medición comparativa del ciclo AWR completo.
+
 ## Requisitos
 
 - Base accesible por HTTPS, URL ORDS obtenida de la API de ADB y una identidad de base autorizada para las consultas y DBMS_WORKLOAD_REPOSITORY. En el laboratorio se usó ADMIN de una base nueva; para uso operativo, definir los privilegios de diagnóstico necesarios.

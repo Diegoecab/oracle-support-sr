@@ -1,5 +1,5 @@
 {
-  "version": "0.9.4",
+  "version": "0.9.5",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
@@ -66,5 +66,10 @@
   "adb_awr_support_attachment_verified_state": "RECEIVED",
   "adb_awr_collection_code_in_sr_skill": false,
   "calculator_browser_checks_passed": 13,
-  "calculator_desktop_and_mobile_visual_review": "passed"
+  "calculator_desktop_and_mobile_visual_review": "passed",
+  "adb_awr_additional_benefit_documented": true,
+  "adb_awr_upload_api_seconds": 4.844,
+  "adb_awr_full_workflow_benchmark_completed": false,
+  "adb_awr_incremental_saving_percent_measured": null,
+  "adb_awr_benefit_included_in_83_percent": false
 }

@@ -8,7 +8,7 @@
     {
       "name": "oracle-support-sr",
       "source": "./plugins/oracle-support-sr",
-      "version": "0.9.4",
+      "version": "0.9.5",
       "description": "Manage OCI support requests and readable updates through the official OCI CLI and Python SDK."
     }
   ]
