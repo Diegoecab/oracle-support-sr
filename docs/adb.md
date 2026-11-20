@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.10. Revisión: 20/11/2026.
+Versión 0.9.11. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -201,9 +201,19 @@ No puedo conectarme a la ADB "VENTASTEST" del compartment "Aplicaciones-Pruebas"
 
 Los nombres son ilustrativos. El asistente recupera los OCIDs con las lecturas autorizadas; si la selección es ambigua, pregunta por el dato que falte.
 
+Por nombre de la base:
+
 ```prompt
-Revisá el pedido de Oracle y prepará la respuesta con los diagnósticos disponibles.
+Revisá el pedido de Oracle en el SR de la ADB "VENTASTEST" y prepará la respuesta con los diagnósticos disponibles.
 ```
+
+Por los últimos dígitos del SR:
+
+```prompt
+Revisá el pedido de Oracle en el SR que termina en 1234 y prepará la respuesta con los diagnósticos disponibles.
+```
+
+El asistente busca entre los SRs visibles, comprueba la coincidencia y muestra el número completo y el título del caso identificado. Si hay varios SRs para esa base o el sufijo no identifica un único caso, pregunta cuál usar. A la API se envía la clave completa, nunca solo el sufijo.
 
 La recolección puede usar API de infraestructura o consultas aprobadas cuando ya existe acceso a la base. El asistente no cambia grants, ACLs, credenciales, lifecycle ni políticas para abrir el caso.
 
