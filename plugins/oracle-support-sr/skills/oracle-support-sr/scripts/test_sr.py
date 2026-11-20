@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 import sr
+import presentation
 
 TENANCY = 'ocid1.tenancy.oc1..testfixture'
 REQUEST = {'compartmentId': TENANCY, 'problemType': 'TECH', 'userGroupId': 'fixture-group', 'ticket': {'severity': 'MEDIUM', 'title': 'Fixture case', 'description': 'A local test, never sent.'}}
@@ -669,6 +670,118 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(wire['ticket']['resource']['item']['comments'], 'Fixture evidence')
         with self.assertRaisesRegex(ValueError, 'Unsupported'):
             sr.model_from_wire(oci, 'CreateIncident', dict(REQUEST, inventedField='ignored?'))
+
+
+class PresentationTests(unittest.TestCase):
+    def test_readable_stdout_keeps_unicode_on_a_legacy_encoded_stream(self):
+        buffer=io.BytesIO()
+        stream=io.TextIOWrapper(buffer,encoding='ascii')
+        sr.emit_result({'user_report_markdown':'Caf\u00e9\n'},'readable',stream)
+        stream.flush()
+        self.assertEqual(buffer.getvalue().decode('utf-8').splitlines(),['Caf\u00e9'])
+
+    def test_readable_draft_stdout_has_a_full_json_evidence_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            request_path=Path(folder)/'request.json'
+            request_path.write_text(json.dumps(REQUEST),encoding='utf-8')
+            out=io.StringIO()
+            with patch.object(sr,'Support',side_effect=AssertionError('No OCI access')),contextlib.redirect_stdout(out):
+                sr.main(['--profile','FIXTURE','--output-format','readable','--evidence-dir',folder,
+                         'create','--request-file',str(request_path),'--expected-tenancy',TENANCY])
+            self.assertFalse(out.getvalue().lstrip().startswith('{'))
+            self.assertIn('Fixture case',out.getvalue())
+            raw=json.loads(next(Path(folder).glob('*-sdk-create.json')).read_text(encoding='utf-8'))
+            self.assertEqual(raw['payload'],REQUEST)
+            self.assertEqual(raw['user_report_markdown'],out.getvalue())
+
+    def test_output_format_change_does_not_invalidate_exact_draft_approval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'request.json';path.write_text(json.dumps(REQUEST),encoding='utf-8')
+            args=['--profile','FIXTURE','--evidence-dir',folder,'create','--request-file',str(path),'--expected-tenancy',TENANCY]
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                sr.main(args)
+            digest=json.loads(out.getvalue())['approval_digest']
+            with contextlib.redirect_stdout(io.StringIO()):
+                sr.main(['--output-format','readable']+args)
+            last=json.loads(sorted(Path(folder).glob('*-sdk-create.json'))[-1].read_text(encoding='utf-8'))
+            self.assertEqual(last['approval_digest'],digest)
+
+    def report(self, description):
+        return sr.literal_report({'operation':'get','status':200,'data':{
+            'key':'4-0000000000','problemType':'TECH','ticket':{
+                'title':'Fixture case','severity':'LOW','lifecycle_state':'ACTIVE',
+                'lifecycle_details':'PENDING_WITH_ORACLE','description':description}}})
+
+    def test_readable_paragraphs_and_case_link_preserve_content(self):
+        report = self.report('First paragraph.\n\nLOCAL standby, read only; no failover.')
+        snapshot = copy.deepcopy(report)
+        text = presentation.render_markdown(report)
+        self.assertIn('https://support.oracle.com/support/?SR=4-0000000000',text)
+        self.assertNotIn('kmContentId=',text)
+        self.assertIn('> First paragraph.\n>\n> LOCAL standby, read only; no failover.',text)
+        self.assertNotIn('```json',text)
+        self.assertEqual(report,snapshot)
+
+    def test_literal_backslash_n_is_not_decoded_as_a_line_break(self):
+        text = presentation.render_markdown(self.report(r'Regex: \n is two characters.'))
+        self.assertIn(r'\\n is two characters.',text)
+        self.assertNotIn('> Regex: \n',text)
+
+    def test_json_description_formatting_keeps_duplicate_keys_and_number_tokens(self):
+        source='{"x":1.2300e+45,"x":-0.00,"nested":[{},"line\\ntext"]}'
+        text = presentation.render_markdown(self.report(source))
+        self.assertIn('```json\n{\n',text)
+        self.assertEqual(text.count('"x"'),2)
+        self.assertIn('1.2300e+45',text)
+        self.assertIn('-0.00',text)
+        self.assertIn('"line\\ntext"',text)
+        self.assertIsNone(presentation._pretty_json('{"x":NaN}'))
+
+    def test_html_correspondence_is_inert_with_structure_and_original_raw(self):
+        original='<p>First &amp; second</p><ul><li>One</li><li>Two</li></ul><script>example()</script><p>![pixel](https://example.invalid/image)</p>'
+        report=self.report(original)
+        text=presentation.render_markdown(report)
+        self.assertIn('First &amp; second',text)
+        self.assertIn('> - One',text)
+        self.assertNotIn('<script>',text)
+        self.assertNotIn('![pixel]',text)
+        self.assertEqual(report['sr_fields']['ticket']['description'],original)
+
+    def test_artifacts_preserve_complete_data_and_link_the_raw_file(self):
+        with tempfile.TemporaryDirectory(prefix='sr view ') as folder:
+            record={'operation':'get','status':200,'data':{'key':'4-0000000000','ticket':{'description':'Exact\n\nEnglish text.'}}}
+            original=copy.deepcopy(record['data'])
+            sr.save_report_artifacts(record,folder,'sdk','get')
+            raw=Path(record['report_files']['raw_json'])
+            md=Path(record['report_files']['readable_markdown'])
+            self.assertEqual(json.loads(raw.read_text(encoding='utf-8'))['data'],original)
+            self.assertEqual(md.read_text(encoding='utf-8'),record['user_report_markdown'])
+            self.assertIn('[Raw output (JSON)](<'+raw.resolve().as_posix()+'>)',md.read_text(encoding='utf-8'))
+
+    def test_missing_fields_and_cached_receipts_do_not_look_like_fresh_creation(self):
+        text=presentation.render_markdown(sr.literal_report({'operation':'create','status':200,'data':{}}))
+        self.assertNotIn('Not created (draft)',text)
+        self.assertIn('verification pending',text)
+        cached=sr.literal_report({'reused_receipt':True,'result':{'operation':'create','data':{'key':'4-0000000000'}}})
+        self.assertIn('not a new write or a fresh retrieval',presentation.render_markdown(cached))
+
+    def test_existing_evidence_can_be_formatted_offline_without_source_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source=Path(folder)/'source.json';target=Path(folder)/'view.md'
+            source.write_text(json.dumps({'operation':'get','data':{'ticket':{'description':'Exact text.'}}}),encoding='utf-8')
+            before=source.read_bytes()
+            with patch.object(sr,'Support',side_effect=AssertionError('No OCI access')), patch.object(sr.sys,'argv',['presentation.py','--input',str(source),'--output',str(target)]), contextlib.redirect_stdout(io.StringIO()):
+                presentation.main()
+            self.assertEqual(source.read_bytes(),before)
+            self.assertIn('Exact text.',target.read_text(encoding='utf-8'))
+
+    def test_offline_formatter_cannot_overwrite_json_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source=Path(folder)/'source.json';source.write_text('{}',encoding='utf-8')
+            with patch.object(sr.sys,'argv',['presentation.py','--input',str(source),'--output',str(source)]), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    presentation.main()
+            self.assertEqual(source.read_text(),'{}')
 
 
 class LiteralReportTests(unittest.TestCase):

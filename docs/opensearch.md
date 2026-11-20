@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.0. Revisión: 19/11/2026.
+Versión 0.9.1. Revisión: 19/11/2026.
 
 Escenario estimativo: un SR con cinco interacciones, 30 minutos por consola o 5 con la skill por interacción; totales de 150 y 25 minutos. Ahorro estimado de 125 minutos (83 %). No es un benchmark del servicio ni incluye esperas de Oracle, configuración inicial o investigación compleja.
 
@@ -338,9 +338,19 @@ Las actualizaciones agregan correspondencia. No reescriben ni eliminan notas ant
 
 ## Qué recibe el usuario después de cada operación
 
-La skill muestra un bloque JSON con los campos literales: número del SR, título y descripción completa, además de los datos devueltos del caso. Conserva el idioma, texto, nombres de campos, enums y saltos de línea originales; no los traduce ni resume. Una explicación breve puede acompañar al bloque, sin reemplazarlo. No alcanza con mostrar el número del SR o un HTTP 200.
+La skill muestra primero una ficha legible: enlace y número del SR, título exacto, tipo, severidad y estado, seguidos de la descripción completa en párrafos y listas. Conserva el idioma y las palabras originales; no traduce, resume ni corta el contenido. Los saltos de línea se ven como saltos, en lugar de secuencias escapadas dentro de un JSON. Si la descripción contiene JSON, lo indenta sin cambiar sus tokens, claves duplicadas o precisión numérica. No alcanza con mostrar el número del SR o un HTTP 200.
 
-La estructura separa execution de sr_fields y declara la fuente: DRAFT_PAYLOAD para el borrador, API_RESPONSE para la respuesta de una llamada, GET_RESPONSE para el caso recuperado o CACHED_RECEIPT para un recibo anterior. También se aplica a borradores y envíos bloqueados. Un borrador no tiene número de SR creado ni estado persistido; no se inventan ni se completan con otros datos. Después de escribir se muestra la lectura posterior, manteniendo los campos ausentes como ausentes. El cambio enviado y la clasificación solicitada se identifican por separado de lo realmente recuperado.
+Los metadatos van en un detalle técnico expandible. Se ofrecen un archivo Markdown legible y el output completo en JSON como evidencia, sin volcarlo por defecto en pantalla ni devolver fragmentos incompletos. El formato legible es una presentación del mismo contenido; el raw conserva el origen exacto, incluido HTML. Las etiquetas HTML conocidas se muestran como texto estructurado inerte, sin ejecutar contenido. Un JSON del helper no equivale necesariamente al cuerpo REST original; REST_JSON identifica la lectura realizada con --raw-response.
+
+Para las respuestas al usuario, el asistente pasa --output-format readable antes de la operación. El CLI del helper conserva JSON por defecto para no romper integraciones existentes; --output-format json lo selecciona expresamente. En ambos casos queda guardada la evidencia JSON completa.
+
+La estructura interna separa execution de sr_fields y declara la fuente: DRAFT_PAYLOAD para el borrador, API_RESPONSE para la respuesta de una llamada, GET_RESPONSE para el caso recuperado o CACHED_RECEIPT para un recibo anterior. También se aplica a borradores y envíos bloqueados. Un borrador no tiene número de SR creado ni estado persistido; no se inventan ni se completan con otros datos. Después de escribir se muestra la lectura posterior, manteniendo los campos ausentes como ausentes. El cambio enviado y la clasificación solicitada se identifican por separado de lo realmente recuperado. El enlace al caso utiliza el parámetro SR; kmContentId corresponde a contenido de Knowledge.
+
+Para formatear una evidencia existente sin consultar ni modificar OCI:
+
+```text
+python scripts/presentation.py --input resultado.json --output reporte.md
+```
 
 | Operación | Datos que incluye la respuesta |
 | --- | --- |

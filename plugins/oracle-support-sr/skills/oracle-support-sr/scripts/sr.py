@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from presentation import render_markdown
 
 ROUTING_TEST_NOTICE = 'Customer-authorized API routing validation; no production incident or infrastructure action is requested.'
 # Conservative drafting budget, not a documented universal Oracle maximum.
@@ -43,6 +44,10 @@ def literal_report(record):
     execution['source'] = ('CACHED_RECEIPT' if cached else 'DRAFT_PAYLOAD' if draft
                            else 'GET_RESPONSE' if source.get('operation') == 'get'
                            else 'API_RESPONSE')
+    if draft and source.get('key') is not None:
+        execution['target_key'] = source['key']
+    elif source.get('target_key') is not None:
+        execution['target_key'] = source['target_key']
     fields = {k: data[k] for k in ('id', 'key', 'problemType', 'problem_type', 'problem-type') if k in data}
     ticket = data.get('ticket')
     if isinstance(ticket, dict):
@@ -67,6 +72,31 @@ def literal_report(record):
     if isinstance(source.get('routing'), dict):
         report['classification_evidence'] = source['routing']
     return report
+
+
+def save_report_artifacts(record, evidence_dir, backend, operation, stamp=None):
+    """Save readable and complete JSON views; does not change request data."""
+    folder = Path(evidence_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = stamp or dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    raw = folder / f'{stamp}-{backend}-{operation}.json'
+    readable = folder / f'{stamp}-{backend}-{operation}-report.md'
+    record['user_report'] = literal_report(record)
+    record['report_files'] = {'readable_markdown': str(readable), 'raw_json': str(raw)}
+    record['user_report_markdown'] = render_markdown(record['user_report'], raw)
+    readable.write_text(record['user_report_markdown'], encoding='utf-8')
+    raw.write_text(json.dumps(record, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
+
+
+def emit_result(record, output_format='json', stream=None):
+    stream = stream or sys.stdout
+    if output_format == 'readable' and record.get('user_report_markdown'):
+        if callable(getattr(stream, 'reconfigure', None)):
+            stream.reconfigure(encoding='utf-8')
+        text = record['user_report_markdown']
+        stream.write(text if text.endswith('\n') else text + '\n')
+    else:
+        print(json.dumps(record, indent=2, ensure_ascii=True, default=str), file=stream)
 
 
 def approval_preview(args, payload):
@@ -99,9 +129,14 @@ def approval_preview(args, payload):
 
 
 class ApprovalRequired(ValueError):
-    def __init__(self, message, preview):
+    def __init__(self, message, preview, evidence_dir=None, output_format='json'):
         super().__init__(message)
+        self.output_format = output_format
+        if evidence_dir is not None:
+            save_report_artifacts(preview, evidence_dir, preview['backend'], preview['operation'])
         self.user_report = literal_report(preview)
+        self.user_report_markdown = preview.get('user_report_markdown') or render_markdown(self.user_report)
+        self.report_files = preview.get('report_files')
 
 
 def format_note(text, mode='readable'):
@@ -502,6 +537,7 @@ def parser():
     result.add_argument('--region', help='Support home region; defaults to profile region')
     result.add_argument('--domain-id')
     result.add_argument('--backend', choices=('cli', 'sdk'), default='sdk')
+    result.add_argument('--output-format', choices=('json', 'readable'), default='json', help='Readable case card or compatible JSON stdout; complete JSON evidence is retained')
     result.add_argument('--raw-response', action='store_true', help='SDK reads only: preserve REST JSON field names and unmodeled response fields')
     result.add_argument('--cli', default='oci', help='CLI executable path')
     result.add_argument('--legacy-csi', help='Genuine verified CSI for a legacy CLI only')
@@ -565,12 +601,12 @@ def main(argv=None):
     preview = approval_preview(args, payload) if mutation else None
     if mutation:
         if not args.execute:
-            preview['user_report'] = literal_report(preview)
-            print(json.dumps(preview, indent=2, ensure_ascii=True))
+            save_report_artifacts(preview, args.evidence_dir, args.backend, args.operation)
+            emit_result(preview, args.output_format)
             return 0
         if preview['approval_required'] and args.approval_digest != preview['approval_digest']:
             reason = preview.get('mandatory_review_reason') or 'DEFAULT_MANUAL'
-            raise ApprovalRequired('MANUAL requires user approval of this exact draft and its --approval-digest (' + reason + '); missing or changed approval, no write sent', preview)
+            raise ApprovalRequired('MANUAL requires user approval of this exact draft and its --approval-digest (' + reason + '); missing or changed approval, no write sent', preview, args.evidence_dir, args.output_format)
     service = Support(args)
     if mutation and service.tenancy != args.expected_tenancy:
         raise ValueError('Profile tenancy differs from expected tenancy; no write sent')
@@ -623,8 +659,8 @@ def main(argv=None):
         path, record, send = begin_attempt(evidence / 'attempts', args.operation, scope, identity=test_identity)
         if not send:
             reused = dict(record, reused_receipt=True)
-            reused['user_report'] = literal_report(reused)
-            print(json.dumps(reused, indent=2))
+            save_report_artifacts(reused, evidence, args.backend, args.operation)
+            emit_result(reused, args.output_format)
             return 0
         attempt = path, record
     start = time.monotonic()
@@ -657,12 +693,15 @@ def main(argv=None):
         result['receipt'] = str(attempt[0])
         result['write_state'] = receipt['state']
     if mutation or args.operation == 'get':
-        result['user_report'] = literal_report(result)
-    stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    (evidence / f'{stamp}-{args.backend}-{args.operation}.json').write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
-    # Keep stdout valid JSON on Windows legacy console encodings as well as UTF-8.
-    # The evidence file above retains the original Unicode text in UTF-8.
-    print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
+        if getattr(args, 'key', None) is not None:
+            result['target_key'] = args.key
+        save_report_artifacts(result, evidence, args.backend, args.operation)
+    else:
+        stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+        (evidence / f'{stamp}-{args.backend}-{args.operation}.json').write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
+    # JSON mode is ASCII-safe for legacy pipes; readable mode selects UTF-8.
+    # The evidence file always retains the original Unicode text in UTF-8.
+    emit_result(result, args.output_format)
     return 0 if isinstance(result.get('status'), int) and 200 <= result['status'] < 300 and result.get('write_state', 'success') == 'success' else 1
 
 
@@ -673,5 +712,7 @@ if __name__ == '__main__':
         error = {'error_type': type(exc).__name__, 'message': str(exc)}
         if isinstance(exc, ApprovalRequired):
             error['user_report'] = exc.user_report
-        print(json.dumps(error), file=sys.stderr)
+            error['user_report_markdown'] = exc.user_report_markdown
+            error['report_files'] = exc.report_files
+        emit_result(error, exc.output_format if isinstance(exc, ApprovalRequired) else 'json', sys.stderr)
         sys.exit(2)
