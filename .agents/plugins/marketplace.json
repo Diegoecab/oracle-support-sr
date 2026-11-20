@@ -1,5 +1,5 @@
 {
-  "name": "diego-oci-support",
+  "name": "oci-support-tools",
   "plugins": [
     {
       "name": "oracle-support-sr",

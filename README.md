@@ -4,6 +4,8 @@ Plugin de piloto con código público. Un único código de skill y helper Pytho
 
 ## Instalar
 
+El marketplace se llama `oci-support-tools`; el plugin y la skill conservan el nombre `oracle-support-sr`. El nombre anterior del catálogo del piloto se reemplazó en esta versión. Las instalaciones existentes no se migran automáticamente: revisar el catálogo registrado antes de usar el nuevo identificador. La autoría y el repositorio de GitHub permanecen iguales.
+
 Requisitos previos: Git y acceso HTTPS a GitHub, el cliente CLI elegido en PATH, Python 3.11 y SDK `oci>=2.177.0,<3` en el Python que usará el helper. El repositorio se puede descargar sin invitación. El plugin se instala con los comandos nativos de cada cliente.
 
 Si el marketplace ya está registrado, instalar es una orden por agente.
@@ -11,13 +13,13 @@ Si el marketplace ya está registrado, instalar es una orden por agente.
 Codex:
 
 ```text
-codex plugin add oracle-support-sr@diego-oci-support
+codex plugin add oracle-support-sr@oci-support-tools
 ```
 
 Claude Code:
 
 ```text
-claude plugin install oracle-support-sr@diego-oci-support --scope user
+claude plugin install oracle-support-sr@oci-support-tools --scope user
 ```
 
 La primera vez se registra el catálogo, una sola vez en cada cliente. Para Codex:
@@ -57,7 +59,7 @@ En ambos modos, los datos fundamentales faltantes se preguntan. No se inventan i
 
 ## Alcance validado y tiempos
 
-El escenario considera un solo SR con cinco interacciones en total, incluyendo apertura y seguimientos: leer novedades, reunir logs o información adicional, responder y verificar. Con una media supuesta de 30 minutos por interacción en consola y 5 con la skill, el total es de 2 h 30 min frente a 25 min: 2 h 5 min de ahorro estimado, un 83 %. El tiempo de CLI/SDK manual se estima en 15 minutos por interacción, 1 h 15 min para ese mismo caso.
+El escenario considera un solo SR: una apertura y cuatro seguimientos, cinco gestiones en total. Una gestión incluye leer novedades, reunir logs o información adicional, responder y verificar. Con una media supuesta de 30 minutos por gestión en consola y 5 con la skill, el total es de 2 h 30 min frente a 25 min: 2 h 5 min de ahorro estimado, un 83 %. El tiempo de CLI/SDK manual se estima en 15 minutos por gestión, 1 h 15 min para ese mismo caso.
 
 Estas medias todavía no se midieron en un SR completo con cinco interacciones. La referencia de 5 minutos proviene de un tramo de apertura de 3 min 43 s redondeado; aplicarla al seguimiento es un supuesto. Se cuenta tiempo activo, sin esperas de Oracle, configuración inicial ni investigación compleja. Se asumen perfil, clasificación y fuentes accesibles ya configurados. La consola puede conservar sesión y precargar información.
 
@@ -75,6 +77,7 @@ Para un producto nuevo no hace falta un SR previo: se puede preparar una selecci
 - [Modos MANUAL y AUTO](docs/modos.md)
 - [Producto, subproducto y registro de mapeos verificados](docs/clasificacion.md)
 - [ADB: MCP nativo y SQLcl como fuentes opcionales de evidencia](docs/adb-mcp.md)
+- [ADB: obtener AWR por API y adjuntarlo a un SR](docs/adb-awr-api.md)
 - [Acceso mínimo: SRs y evidencia](docs/requisitos.md)
 - [Formato de nuestros updates](docs/formato-updates.md)
 - [Fuentes oficiales y blogs](docs/fuentes.md)

@@ -1,5 +1,5 @@
 {
-  "version": "0.9.3",
+  "version": "0.9.4",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
@@ -22,6 +22,10 @@
   "single_sr_scenario": {
     "sr_count": 1,
     "interactions": 5,
+    "workflow_breakdown": {
+      "opening": 1,
+      "follow_ups": 4
+    },
     "interaction_scope": "Five interactions in total for one SR, including opening and subsequent follow-ups; no additional opening is added.",
     "assumed_minutes_per_interaction": {
       "console": 30,
@@ -49,5 +53,18 @@
   "controlled_routing_test_final_state": "CLOSED",
   "controlled_routing_test_persisted_category_verified": false,
   "adb_native_mcp_live_connection_tested_in_this_release": false,
-  "sqlcl_mcp_live_connection_tested_in_this_release": false
+  "sqlcl_mcp_live_connection_tested_in_this_release": false,
+  "marketplace_name": "oci-support-tools",
+  "marketplace_rename_installed_clients_migrated": false,
+  "customer_guides_classification_section_removed": true,
+  "adb_awr_database_management_api_documented": true,
+  "adb_awr_database_management_api_live_tested": false,
+  "adb_awr_rest_enabled_sql_live_tested": true,
+  "adb_awr_rest_enabled_sql_free_tier_live_tested": true,
+  "adb_awr_rest_enabled_sql_collection_seconds": 6.024,
+  "adb_awr_rest_enabled_sql_report_bytes": 311126,
+  "adb_awr_support_attachment_verified_state": "RECEIVED",
+  "adb_awr_collection_code_in_sr_skill": false,
+  "calculator_browser_checks_passed": 13,
+  "calculator_desktop_and_mobile_visual_review": "passed"
 }

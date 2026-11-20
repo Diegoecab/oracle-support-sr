@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.3. Revisión: 20/11/2026.
+Versión 0.9.4. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -19,7 +19,17 @@ Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo p
 - [OCI CLI: Support Management](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/support.html).
 - [SDK Python: IncidentClient de Support Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/client/oci.cims.IncidentClient.html).
 
-Escenario estimativo: un SR con cinco interacciones, 30 minutos por consola o 5 con la skill por interacción; totales de 150 y 25 minutos. Ahorro estimado de 125 minutos (83 %). No es un benchmark del servicio ni incluye esperas de Oracle, configuración inicial o investigación compleja.
+## Tiempo estimado para un SR
+
+1 apertura + 4 seguimientos = 5 gestiones del mismo SR. Cada gestión incluye revisar la novedad, reunir la información, enviarla y verificar el resultado.
+
+| Forma de trabajo | Minutos por gestión (supuesto) | Cálculo | Total para el SR |
+| --- | ---: | --- | --- |
+| Consola / portal | 30 min | 5 × 30 min | 2 h 30 min (150 min) |
+| CLI / SDK manual | 15 min | 5 × 15 min | 1 h 15 min (75 min) |
+| Skill en Codex / Claude | 5 min | 5 × 5 min | 25 min |
+
+Ahorro estimado frente a la consola: 150 − 25 = 125 minutos (2 h 5 min), aproximadamente un 83 %. Frente al CLI / SDK manual: 50 minutos. Son supuestos para comparar formas de trabajar; falta medir cinco gestiones comparables de un SR completo. Se cuenta tiempo activo y se excluyen esperas de Oracle, configuración inicial e investigación compleja.
 
 ## Qué cubre esta guía
 
@@ -84,18 +94,18 @@ En MANUAL se muestra la escritura concreta antes del envío. El asistente resuel
 
 ## Instalación
 
-El mismo plugin funciona en Codex y Claude Code. Con el marketplace registrado, instalar requiere una orden por agente.
+El mismo plugin funciona en Codex y Claude Code. El catálogo de instalación se llama oci-support-tools. Es un proyecto de piloto independiente, sin aval oficial de Oracle. Con el marketplace registrado, instalar requiere una orden por agente.
 
 Codex:
 
 ```text
-codex plugin add oracle-support-sr@diego-oci-support
+codex plugin add oracle-support-sr@oci-support-tools
 ```
 
 Claude Code:
 
 ```text
-claude plugin install oracle-support-sr@diego-oci-support --scope user
+claude plugin install oracle-support-sr@oci-support-tools --scope user
 ```
 
 <details>
@@ -197,16 +207,6 @@ Aplicar la guía [SRDC1037: información requerida para investigar OCI OpenSearc
 - Impacto, alcance y entorno confirmados por el responsable.
 
 No inventar un cluster ni OCIDs para una consulta de planificación. No incluir documentos indexados o consultas con datos de negocio si no son necesarios y están autorizados para el caso.
-
-## Producto, categoría y verificación
-
-Consultar ListIncidentResourceTypes con TAXONOMY y conservar servicio, categoría, subcategoría, claves, schemas y fecha. El nombre Category del portal no debe equipararse a un nivel del JSON solo por su nombre.
-
-Para un producto o ruta nuevos, CATALOG_ONLY exige una selección inequívoca del catálogo vigente y respeta MANUAL o AUTO. No requiere otro OK solo por primer uso ni un SR previo. Una receta VERIFIED reutiliza una clasificación realmente comprobada. Las opciones ambiguas se preguntan y una discrepancia conocida no se disfraza como primer uso.
-
-Limitación actual relevante: en pruebas de OpenSearch, la selección Backup and Restore produjo Cluster Provision and Resize en el portal. Esa ruta permanece bloqueada para incidentes reales hasta confirmar un contrato soportado o la corrección correspondiente. Un HTTP 200 y las claves repetidas por CreateIncident no la validan. Esto no implica que todas las categorías del servicio fallen.
-
-El modelo TechSupportItem sí puede representar categoría/subcategoría. Las lecturas Get/List revisadas no las devolvieron pobladas; hasta contar con una lectura soportada que lo haga, la verificación fina necesita el portal u otra evidencia confirmada por Oracle. No se promete controlar la cola interna de ingenieros.
 
 ## Altas, consultas, modificaciones, adjuntos y cierre
 
@@ -355,30 +355,13 @@ Las actualizaciones agregan correspondencia. No reescriben ni eliminan notas ant
 
 ## Qué recibe el usuario después de cada operación
 
-La skill muestra primero una ficha legible: enlace y número del SR, título exacto, tipo, severidad y estado, seguidos de la descripción completa en párrafos y listas. Conserva el idioma y las palabras originales; no traduce, resume ni corta el contenido. Los saltos de línea se ven como saltos, en lugar de secuencias escapadas dentro de un JSON. Si la descripción contiene JSON, lo indenta sin cambiar sus tokens, claves duplicadas o precisión numérica. No alcanza con mostrar el número del SR o un HTTP 200.
+Después de cada operación recibís:
 
-Los metadatos van en un detalle técnico expandible. Se ofrecen un archivo Markdown legible y el output completo en JSON como evidencia, sin volcarlo por defecto en pantalla ni devolver fragmentos incompletos. El formato legible es una presentación del mismo contenido; el raw conserva el origen exacto, incluido HTML. Las etiquetas HTML conocidas se muestran como texto estructurado inerte, sin ejecutar contenido. Un JSON del helper no equivale necesariamente al cuerpo REST original; REST_JSON identifica la lectura realizada con --raw-response.
+- Enlace y número del SR, título, descripción completa, severidad y estado, con el contenido original y formato legible.
+- Resultado de la acción: nota enviada, archivo adjuntado o cierre solicitado, según corresponda.
+- Verificación posterior, pendientes y acceso al JSON completo como evidencia.
 
-Para las respuestas al usuario, el asistente pasa --output-format readable antes de la operación. El CLI del helper conserva JSON por defecto para no romper integraciones existentes; --output-format json lo selecciona expresamente. En ambos casos queda guardada la evidencia JSON completa.
-
-La estructura interna separa execution de sr_fields y declara la fuente: DRAFT_PAYLOAD para el borrador, API_RESPONSE para la respuesta de una llamada, GET_RESPONSE para el caso recuperado o CACHED_RECEIPT para un recibo anterior. También se aplica a borradores y envíos bloqueados. Un borrador no tiene número de SR creado ni estado persistido; no se inventan ni se completan con otros datos. Después de escribir se muestra la lectura posterior, manteniendo los campos ausentes como ausentes. El cambio enviado y la clasificación solicitada se identifican por separado de lo realmente recuperado. El enlace al caso utiliza el parámetro SR; kmContentId corresponde a contenido de Knowledge.
-
-Para formatear una evidencia existente sin consultar ni modificar OCI:
-
-```text
-python scripts/presentation.py --input resultado.json --output reporte.md
-```
-
-| Operación | Datos que incluye la respuesta |
-| --- | --- |
-| Creación | SR y enlace, título, descripción, tipo, severidad, estado, recurso/región pertinentes y clasificación solicitada frente a la realmente comprobada. |
-| Actualización | Identidad y descripción literal del caso, texto exacto de la nota publicada o campos modificados, valores literales anteriores/nuevos cuando estén disponibles y estado posterior. Agregar correspondencia no equivale a modificar otros campos. |
-| Adjunto | Identidad y descripción del caso, nombres de archivos, restricción de acceso y estado de procesamiento devuelto. |
-| Cierre | Identidad y descripción del caso, motivo o nota de cierre y estado obtenido al verificar. Pedir el cierre no prueba que ya esté CLOSED; no elimina el historial. |
-
-Después de cada escritura se consulta el SR para comprobar el resultado. La respuesta indica cuándo se verificó, qué quedó confirmado, qué sigue pendiente y la próxima acción. Si la lectura falla, distingue el envío aceptado de la verificación pendiente antes de reintentar. Para varias operaciones solicitadas, muestra el resultado de cada paso.
-
-Los datos fundamentales ausentes no se inventan. La clasificación enviada no se presenta como clasificación persistida sin evidencia independiente. Request IDs, versiones y archivos de evidencia quedan como detalle técnico cuando aportan valor, sin volcar logs sensibles en la conversación.
+Los datos ausentes no se inventan. Los detalles técnicos quedan disponibles sin ocupar la respuesta principal.
 
 Referencias: [agregar comentarios](https://docs.oracle.com/en-us/iaas/Content/GSG/support/update-incident-add-comment.htm) y [modelo UpdateActivityItemDetails](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.UpdateActivityItemDetails.html).
 

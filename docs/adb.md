@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.3. Revisión: 20/11/2026.
+Versión 0.9.4. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -10,7 +10,7 @@ Para reducir las tareas repetitivas de apertura y seguimiento, desarrollamos [or
 
 Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
 
-**Diagnósticos para el SR.** El flujo puede complementarse con el [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) y herramientas Select AI Agent configuradas y autorizadas para recuperar diagnósticos, incluidos [datos de errores accesibles al cliente](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html), y preparar evidencia para adjuntar al SR. Para [reportes AWR](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html), Oracle documenta su generación y descarga mediante Performance Hub; su obtención por MCP se plantea como una integración que requiere preparar y validar una herramienta específica. Esta ampliación se configura por separado de la skill de SRs.
+**Diagnósticos para el SR.** Se pueden obtener AWR mediante [REST-Enabled SQL](https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/26.2/orddg/rest-enabled-sql-service.html) y DBMS_WORKLOAD_REPOSITORY con una identidad de base autorizada; el [ejemplo de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) incluye los comandos. Otra alternativa es la [API de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report), con sus requisitos, o la descarga desde Performance Hub. El [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) puede aportar diagnósticos mediante herramientas configuradas y autorizadas. La recolección se configura por separado; la skill de SRs adjunta la evidencia obtenida.
 
 **Documentación oficial de Oracle**
 
@@ -19,7 +19,17 @@ Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo p
 - [OCI CLI: Support Management](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/support.html).
 - [SDK Python: IncidentClient de Support Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/client/oci.cims.IncidentClient.html).
 
-Escenario estimativo: un SR con cinco interacciones, 30 minutos por consola o 5 con la skill por interacción; totales de 150 y 25 minutos. Ahorro estimado de 125 minutos (83 %). No es un benchmark del servicio ni incluye esperas de Oracle, configuración inicial o investigación compleja.
+## Tiempo estimado para un SR
+
+1 apertura + 4 seguimientos = 5 gestiones del mismo SR. Cada gestión incluye revisar la novedad, reunir la información, enviarla y verificar el resultado.
+
+| Forma de trabajo | Minutos por gestión (supuesto) | Cálculo | Total para el SR |
+| --- | ---: | --- | --- |
+| Consola / portal | 30 min | 5 × 30 min | 2 h 30 min (150 min) |
+| CLI / SDK manual | 15 min | 5 × 15 min | 1 h 15 min (75 min) |
+| Skill en Codex / Claude | 5 min | 5 × 5 min | 25 min |
+
+Ahorro estimado frente a la consola: 150 − 25 = 125 minutos (2 h 5 min), aproximadamente un 83 %. Frente al CLI / SDK manual: 50 minutos. Son supuestos para comparar formas de trabajar; falta medir cinco gestiones comparables de un SR completo. Se cuenta tiempo activo y se excluyen esperas de Oracle, configuración inicial e investigación compleja.
 
 ## Qué cubre esta guía
 
@@ -84,18 +94,18 @@ La recolección puede usar API de infraestructura o consultas aprobadas cuando y
 
 ## Instalación
 
-El mismo plugin funciona en Codex y Claude Code. Con el marketplace registrado, instalar requiere una orden por agente.
+El mismo plugin funciona en Codex y Claude Code. El catálogo de instalación se llama oci-support-tools. Es un proyecto de piloto independiente, sin aval oficial de Oracle. Con el marketplace registrado, instalar requiere una orden por agente.
 
 Codex:
 
 ```text
-codex plugin add oracle-support-sr@diego-oci-support
+codex plugin add oracle-support-sr@oci-support-tools
 ```
 
 Claude Code:
 
 ```text
-claude plugin install oracle-support-sr@diego-oci-support --scope user
+claude plugin install oracle-support-sr@oci-support-tools --scope user
 ```
 
 <details>
@@ -195,15 +205,7 @@ La evidencia depende del síntoma; no todos los casos necesitan SQL ni logs de a
 - Para backup/restore o disponibilidad: operación, backup y eventos relevantes, sin ejecutar un restore como diagnóstico.
 - Impacto, entorno y alcance confirmados por el responsable.
 
-Un 404 NotAuthorizedOrNotFound no prueba que la base haya sido eliminada. Resource Search, GetAutonomousDatabase y SQL pueden aportar observaciones diferentes; registrar fuente y fecha. Un recurso STOPPED no equivale a TERMINATED. Si no existe conectividad SQL, conservar esa limitación y usar las lecturas disponibles.
-
-## Producto, categoría y verificación
-
-Resolver servicio, categoría y subcategoría desde la taxonomía vigente según el tipo de base y el síntoma. No inferir la clasificación fina solo porque un OCID sea autonomousdatabase.
-
-Para primer uso se admite CATALOG_ONLY con selección inequívoca y consulta nueva del catálogo, respetando MANUAL o AUTO. No exige otro OK solo por primer uso ni un SR anterior. Una receta VERIFIED necesita evidencia real de la clasificación persistida; si hay una discrepancia conocida, se conserva y se bloquea esa ruta hasta resolverla.
-
-Después del alta comprobar el SR y la evidencia guardada. Los modelos del servicio pueden representar clasificación, pero no debe afirmarse que vino poblada si la respuesta solo trae actividades. Si falta en Get/List, marcar la comprobación pendiente y usar una lectura soportada o el portal. La clasificación del producto y la asignación interna de ingenieros se verifican por separado.
+Registrar la fuente y fecha de cada diagnóstico. Si una lectura o conexión no está disponible, indicar la limitación y utilizar la evidencia accesible.
 
 ## Altas, consultas, modificaciones, adjuntos y cierre
 
@@ -272,6 +274,44 @@ El mismo cliente expone create_incident, update_incident y put_attachment. El he
 
 La skill verifica una escritura con una lectura posterior. Un HTTP 200 confirma aceptación, no que el equipo interno ni la clasificación sean los esperados. Si el resultado es incierto, consulta antes de reintentar para evitar duplicados. Las notas se agregan al historial; no editan correspondencia anterior.
 
+## Métricas y reportes AWR mediante API
+
+Hay dos interfaces complementarias para preparar evidencia de rendimiento:
+
+| Evidencia | Interfaz soportada | Resultado |
+| --- | --- | --- |
+| Series de métricas | OCI Monitoring: SummarizeMetricsData | Datos agregados para la ventana y dimensiones consultadas. Se guardan para el SR si son relevantes. |
+| Reporte AWR mediante SQL/PLSQL | ORDS REST-Enabled SQL y DBMS_WORKLOAD_REPOSITORY.AWR_REPORT_HTML | HTML completo para los snapshots de la PDB seleccionados; usa una identidad de base con permisos. |
+| Reporte AWR mediante OCI | Database Management: GetAwrDbReport, disponible por REST, CLI y SDK | Contenido del informe en HTML o texto, con Diagnostics & Management y sus requisitos. |
+
+El [ejemplo completo: obtener el AWR y adjuntarlo a un SR](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) documenta los comandos de creación de una ADB Free, consultas de snapshots, descarga por REST-Enabled SQL y carga con la skill. La vía REST-Enabled SQL se ejecutó con Always Free 19c sin habilitar Database Management; los comandos de recolección permanecen fuera de la skill.
+
+OCI Monitoring no genera el informe AWR. Para la alternativa de Database Management, el flujo documentado es:
+
+1. Usar una ADB con Diagnostics & Management habilitado, conexión y credencial de diagnóstico configuradas. Oracle documenta soporte para ADB Serverless; las funciones avanzadas tienen costo adicional. La habilitación es una tarea separada del SR.
+
+2. Resolver el Managed Database mediante ListManagedDatabases, el identificador interno AWR mediante ListAwrDbs y los snapshots disponibles mediante ListAwrDbSnapshots. Elegir la ventana del incidente; no inventar estos identificadores.
+
+3. Ejecutar GetAwrDbReport con reportType=AWR y reportFormat=HTML, y guardar el campo content como un archivo .html.
+
+4. Revisar el archivo, retirar información que no corresponda compartir y pedir a la skill que lo adjunte al SR seleccionado, según el modo de aprobación.
+
+Ejemplo CLI; reemplazar los marcadores por valores comprobados y usar el perfil y la región configurados para esa base:
+
+```text
+oci database-management managed-database get-awr-db-report --managed-database-id <MANAGED_DATABASE_OCID> --awr-db-id <AWR_DB_ID> --begin-sn-id-greater-than-or-equal-to <BEGIN_SNAPSHOT> --end-sn-id-less-than-or-equal-to <END_SNAPSHOT> --report-type AWR --report-format HTML --query data.content --raw-output > awr.html
+```
+
+La llamada equivalente en Python es DbManagementClient.get_awr_db_report(...); el archivo se obtiene de response.data.content. Estas operaciones pertenecen a Database Management, fuera del helper de SRs. También sigue disponible la descarga desde Performance Hub.
+
+## Permisos y límites
+
+GetAwrDbReport requiere DBMGMT_MANAGED_DB_READ, incluido en read dbmgmt-managed-databases en el compartment pertinente. La credencial de base y el acceso a secretos o named credentials se autorizan por separado. Para las funciones avanzadas que lo requieren, Oracle exige una credencial ADMIN; consultar la matriz oficial, sin ampliar permisos automáticamente. Oracle documenta un límite de 4 MB para los AWR generados por AWR Explorer en bases Cloud y Autonomous. La disponibilidad se comprueba con la configuración y versión de la base.
+
+Referencias: [AWR por CLI](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/database-management/managed-database/get-awr-db-report.html), [SDK Python](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report), [habilitación para ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/mdw-oci-database-management.html), [matriz de soporte](https://docs.oracle.com/en-us/iaas/database-management/doc/database-management-feature-support-matrix.html), [conexión y credenciales](https://docs.oracle.com/en-us/iaas/database-management/doc/enable-database-management-autonomous-databases.html), [IAM de Database Management](https://docs.oracle.com/en-us/iaas/database-management/doc/policy-details-database-management.html), [límites de AWR Explorer](https://docs.oracle.com/en-us/iaas/database-management/doc/use-awr-explorer-analyze-database-performance.html) y [API de métricas](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/monitoring/client/oci.monitoring.MonitoringClient.html#summarize_metrics_data).
+
+El mecanismo está documentado por Oracle; su ejecución con una base del cliente debe validarse antes de automatizarlo. No se habilitan servicios ni se generan reportes al instalar la skill.
+
 ## MCP como fuente opcional de evidencia
 
 Autonomous Database Serverless dispone de un [MCP nativo administrado](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html). Puede aportar resultados de herramientas Select AI Agent ya habilitadas y autorizadas para la identidad de la base. No se limita a SQLcl ni implica acceso SQL irrestricto.
@@ -284,7 +324,7 @@ Autonomous Database Serverless dispone de un [MCP nativo administrado](https://d
 | Evidencia | Alcance documentado y preparación necesaria |
 | --- | --- |
 | Errores y datos de logs accesibles al cliente | Oracle documenta la consulta de V$CLIENT_ERRORS. Para invocarla por MCP debe existir una herramienta autorizada con acceso a esa vista. Esto no equivale a descargar todos los logs internos de Oracle. |
-| Reportes AWR | Oracle documenta su generación y descarga en Performance Hub. La obtención por MCP se propone como una integración que requiere una herramienta específica, permisos y validación de ventana/snapshots y exportación del archivo. No se encontró una herramienta AWR preconfigurada en la documentación del MCP nativo consultada. |
+| Reportes AWR | Se pueden generar con DBMS_WORKLOAD_REPOSITORY mediante REST-Enabled SQL, obtener por GetAwrDbReport de Database Management o descargar desde Performance Hub. No se encontró una herramienta AWR preconfigurada en el MCP nativo consultado; exponer el flujo por MCP requiere una herramienta autorizada. Las APIs directas no requieren MCP. |
 
 Las fuentes son [Use MCP Server](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html), [Query for Client Errors](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html) y [AWR en Performance Hub](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html). Para ADB Serverless, la [nota de Oracle](https://docs.oracle.com/en-us/iaas/releasenotes/autonomous-database-serverless/2025-07-query-for-client-errors.htm) indica que V$DIAG_ALERT_EXT no está disponible para datos del alert log y remite a V$CLIENT_ERRORS.
 
@@ -358,30 +398,13 @@ Las actualizaciones agregan correspondencia. No reescriben ni eliminan notas ant
 
 ## Qué recibe el usuario después de cada operación
 
-La skill muestra primero una ficha legible: enlace y número del SR, título exacto, tipo, severidad y estado, seguidos de la descripción completa en párrafos y listas. Conserva el idioma y las palabras originales; no traduce, resume ni corta el contenido. Los saltos de línea se ven como saltos, en lugar de secuencias escapadas dentro de un JSON. Si la descripción contiene JSON, lo indenta sin cambiar sus tokens, claves duplicadas o precisión numérica. No alcanza con mostrar el número del SR o un HTTP 200.
+Después de cada operación recibís:
 
-Los metadatos van en un detalle técnico expandible. Se ofrecen un archivo Markdown legible y el output completo en JSON como evidencia, sin volcarlo por defecto en pantalla ni devolver fragmentos incompletos. El formato legible es una presentación del mismo contenido; el raw conserva el origen exacto, incluido HTML. Las etiquetas HTML conocidas se muestran como texto estructurado inerte, sin ejecutar contenido. Un JSON del helper no equivale necesariamente al cuerpo REST original; REST_JSON identifica la lectura realizada con --raw-response.
+- Enlace y número del SR, título, descripción completa, severidad y estado, con el contenido original y formato legible.
+- Resultado de la acción: nota enviada, archivo adjuntado o cierre solicitado, según corresponda.
+- Verificación posterior, pendientes y acceso al JSON completo como evidencia.
 
-Para las respuestas al usuario, el asistente pasa --output-format readable antes de la operación. El CLI del helper conserva JSON por defecto para no romper integraciones existentes; --output-format json lo selecciona expresamente. En ambos casos queda guardada la evidencia JSON completa.
-
-La estructura interna separa execution de sr_fields y declara la fuente: DRAFT_PAYLOAD para el borrador, API_RESPONSE para la respuesta de una llamada, GET_RESPONSE para el caso recuperado o CACHED_RECEIPT para un recibo anterior. También se aplica a borradores y envíos bloqueados. Un borrador no tiene número de SR creado ni estado persistido; no se inventan ni se completan con otros datos. Después de escribir se muestra la lectura posterior, manteniendo los campos ausentes como ausentes. El cambio enviado y la clasificación solicitada se identifican por separado de lo realmente recuperado. El enlace al caso utiliza el parámetro SR; kmContentId corresponde a contenido de Knowledge.
-
-Para formatear una evidencia existente sin consultar ni modificar OCI:
-
-```text
-python scripts/presentation.py --input resultado.json --output reporte.md
-```
-
-| Operación | Datos que incluye la respuesta |
-| --- | --- |
-| Creación | SR y enlace, título, descripción, tipo, severidad, estado, recurso/región pertinentes y clasificación solicitada frente a la realmente comprobada. |
-| Actualización | Identidad y descripción literal del caso, texto exacto de la nota publicada o campos modificados, valores literales anteriores/nuevos cuando estén disponibles y estado posterior. Agregar correspondencia no equivale a modificar otros campos. |
-| Adjunto | Identidad y descripción del caso, nombres de archivos, restricción de acceso y estado de procesamiento devuelto. |
-| Cierre | Identidad y descripción del caso, motivo o nota de cierre y estado obtenido al verificar. Pedir el cierre no prueba que ya esté CLOSED; no elimina el historial. |
-
-Después de cada escritura se consulta el SR para comprobar el resultado. La respuesta indica cuándo se verificó, qué quedó confirmado, qué sigue pendiente y la próxima acción. Si la lectura falla, distingue el envío aceptado de la verificación pendiente antes de reintentar. Para varias operaciones solicitadas, muestra el resultado de cada paso.
-
-Los datos fundamentales ausentes no se inventan. La clasificación enviada no se presenta como clasificación persistida sin evidencia independiente. Request IDs, versiones y archivos de evidencia quedan como detalle técnico cuando aportan valor, sin volcar logs sensibles en la conversación.
+Los datos ausentes no se inventan. Los detalles técnicos quedan disponibles sin ocupar la respuesta principal.
 
 Referencias: [agregar comentarios](https://docs.oracle.com/en-us/iaas/Content/GSG/support/update-incident-add-comment.htm) y [modelo UpdateActivityItemDetails](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/models/oci.cims.models.UpdateActivityItemDetails.html).
 
@@ -408,6 +431,11 @@ Referencias: [agregar comentarios](https://docs.oracle.com/en-us/iaas/Content/GS
 - [Errores consultables: V$CLIENT_ERRORS](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html)
 - [Cambio de acceso a datos del alert log en ADB Serverless](https://docs.oracle.com/en-us/iaas/releasenotes/autonomous-database-serverless/2025-07-query-for-client-errors.htm)
 - [Generación y descarga de AWR mediante Performance Hub](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html)
+- [AWR mediante OCI CLI: GetAwrDbReport](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/database-management/managed-database/get-awr-db-report.html)
+- [REST-Enabled SQL: autenticación, SQL/PLSQL y resultados JSON](https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/26.2/orddg/rest-enabled-sql-service.html)
+- [API PL/SQL de AWR](https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_WORKLOAD_REPOSITORY.html)
+- [Database Management para ADB Serverless](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/mdw-oci-database-management.html)
+- [IAM de Database Management](https://docs.oracle.com/en-us/iaas/database-management/doc/policy-details-database-management.html)
 - [Blog oficial: observabilidad, AWR y SQL trace en ADB Serverless](https://blogs.oracle.com/autonomous-ai-database/autonomous-database-serverless-observability-for-adbs)
 - [SQLcl MCP oficial](https://docs.oracle.com/en/database/oracle/sql-developer-command-line/25.4/sqcug/using-oracle-sqlcl-mcp-server.html)
 - [Restricciones de SQLcl MCP](https://docs.oracle.com/en/database/oracle/sql-developer-command-line/25.4/sqcug/configuring-restrict-levels-sqlcl-mcp-server.html)
