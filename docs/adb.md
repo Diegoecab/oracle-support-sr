@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.6. Revisión: 20/11/2026.
+Versión 0.9.7. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -103,15 +103,15 @@ Leer novedades, obtener la información adicional solicitada, publicar la respue
 
 El usuario describe el problema y su impacto. El asistente reutiliza la base y el perfil del contexto, reúne la información accesible y pregunta solo por datos fundamentales que falten.
 
-```text
+```prompt
 Usá oracle-support-sr con MI_PERFIL para validar acceso y listar mis SRs.
 ```
 
-```text
+```prompt
 No puedo conectarme a esta ADB. Reuní el contexto y prepará un SR.
 ```
 
-```text
+```prompt
 Revisá el pedido de Oracle y prepará la respuesta con los diagnósticos disponibles.
 ```
 
@@ -305,7 +305,7 @@ El AWR se obtiene mediante la API de Database Management. El asistente orquesta 
 
 Con la base, el SR y el período del incidente ya identificados:
 
-```text
+```prompt
 Obtené el AWR de esta ADB para el período del incidente y adjuntalo al SR.
 ```
 

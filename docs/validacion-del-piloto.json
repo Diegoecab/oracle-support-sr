@@ -1,5 +1,5 @@
 {
-  "version": "0.9.6",
+  "version": "0.9.7",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
@@ -75,5 +75,9 @@
   "adb_awr_documented_collection_interface": "DATABASE_MANAGEMENT_API",
   "adb_awr_user_prepares_sql_files": false,
   "adb_awr_database_management_workflow_orchestration_documented": true,
-  "adb_awr_database_management_collector_deployed": false
+  "adb_awr_database_management_collector_deployed": false,
+  "customer_prompt_console_style": "CODEX_CLAUDE",
+  "customer_prompt_copy_button": true,
+  "customer_prompt_browser_scenarios_passed": 4,
+  "customer_prompt_clipboard_fallback_verified": true
 }

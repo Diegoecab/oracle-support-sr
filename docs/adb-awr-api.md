@@ -8,7 +8,7 @@ La recolección se orquesta con las herramientas CLI/SDK del asistente, fuera de
 
 Con la base y el SR identificados en la conversación:
 
-```text
+```prompt
 Obtené el AWR de esta ADB para el período del incidente y adjuntalo al SR.
 ```
 

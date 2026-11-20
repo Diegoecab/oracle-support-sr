@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.6. Revisión: 20/11/2026.
+Versión 0.9.7. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -78,15 +78,15 @@ Leer novedades, obtener la información adicional solicitada, publicar la respue
 
 El usuario expresa el problema en lenguaje natural; el asistente reutiliza perfil y cluster del contexto y pregunta por los datos relevantes que falten.
 
-```text
+```prompt
 Usá oracle-support-sr con MI_PERFIL para validar acceso y listar mis SRs.
 ```
 
-```text
+```prompt
 Prepará un SR por el error de restore de este cluster de OpenSearch.
 ```
 
-```text
+```prompt
 Qué novedades hay? Reuní lo que pide Oracle y prepará la respuesta.
 ```
 
