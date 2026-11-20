@@ -1,6 +1,21 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.1. Revisión: 19/11/2026.
+Versión 0.9.2. Revisión: 20/11/2026.
+
+## Gestión de SRs mediante API, CLI y SDK
+
+Los Service Requests (SRs) de **OCI Search Service with OpenSearch** pueden gestionarse mediante la **Support Management API de OCI**, tanto por REST como desde OCI CLI y los SDK oficiales. Estas interfaces permiten crear y consultar casos, publicar actualizaciones, subir archivos y solicitar el cierre.
+
+Para reducir las tareas repetitivas de apertura y seguimiento, desarrollamos [oracle-support-sr](https://github.com/Diegoecab/oracle-support-sr), una skill compatible con **Codex y Claude Code**. El piloto demuestra cómo gestionar un SR con pedidos en lenguaje natural, reutilizar el contexto disponible y mantener una salida legible con evidencia de cada operación.
+
+Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
+
+**Documentación oficial de Oracle**
+
+- [Gestión de SRs: creación mediante consola, CLI y API](https://docs.oracle.com/en-us/iaas/Content/GSG/support/create-incident.htm).
+- [Referencia de las API REST de OCI](https://docs.oracle.com/en-us/iaas/api/).
+- [OCI CLI: Support Management](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/support.html).
+- [SDK Python: IncidentClient de Support Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/client/oci.cims.IncidentClient.html).
 
 Escenario estimativo: un SR con cinco interacciones, 30 minutos por consola o 5 con la skill por interacción; totales de 150 y 25 minutos. Ahorro estimado de 125 minutos (83 %). No es un benchmark del servicio ni incluye esperas de Oracle, configuración inicial o investigación compleja.
 
