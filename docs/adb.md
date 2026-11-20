@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.9. Revisión: 20/11/2026.
+Versión 0.9.10. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -196,8 +196,10 @@ Usá oracle-support-sr con MI_PERFIL para validar acceso y listar mis SRs.
 ```
 
 ```prompt
-No puedo conectarme a esta ADB. Reuní el contexto y prepará un SR.
+No puedo conectarme a la ADB "VENTASTEST" del compartment "Aplicaciones-Pruebas". Reuní el contexto y prepará un SR.
 ```
+
+Los nombres son ilustrativos. El asistente recupera los OCIDs con las lecturas autorizadas; si la selección es ambigua, pregunta por el dato que falte.
 
 ```prompt
 Revisá el pedido de Oracle y prepará la respuesta con los diagnósticos disponibles.
