@@ -18,7 +18,7 @@ Oracle documenta la exposición de herramientas Select AI Agent a través del MC
 | Evidencia | Qué se puede afirmar |
 | --- | --- |
 | Datos de errores del cliente | ADB Serverless permite consultar V$CLIENT_ERRORS. Esa lectura puede exponerse mediante una herramienta de diagnóstico configurada y autorizada. No implica acceso a todos los logs internos del servicio. |
-| Reportes AWR | Se pueden generar mediante DBMS_WORKLOAD_REPOSITORY y REST-Enabled SQL, o usar GetAwrDbReport de Database Management con sus requisitos. El [ejemplo con comandos](adb-awr-api.md) separa la recolección del adjunto al SR. No se encontró una herramienta AWR predefinida en el MCP nativo consultado: exponer ese flujo por MCP requiere una herramienta configurada y validada. Las APIs directas no requieren MCP. |
+| Reportes AWR | El [flujo automatizado](adb-awr-api.md) usa GetAwrDbReport de Database Management, con sus requisitos, y la skill para el adjunto al SR. No requiere MCP ni archivos SQL preparados por el usuario. No se encontró una herramienta AWR predefinida en el MCP nativo consultado; el MCP puede aportar otros diagnósticos mediante herramientas autorizadas. |
 
 Para ADB Serverless, Oracle indica que V$DIAG_ALERT_EXT no está disponible para datos del alert log y recomienda V$CLIENT_ERRORS. No trasladar instrucciones de ADB Dedicated a Serverless sin comprobar su compatibilidad.
 
@@ -27,7 +27,6 @@ Referencias oficiales:
 - [MCP nativo y herramientas personalizadas](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html).
 - [Query for Client Errors](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-query-alert-log.html).
 - [Cambio documentado sobre V$DIAG_ALERT_EXT](https://docs.oracle.com/en-us/iaas/releasenotes/autonomous-database-serverless/2025-07-query-for-client-errors.htm).
-- [AWR en Performance Hub](https://docs.oracle.com/en-us/iaas/performance-hub/doc/download-awr-report.html).
 - [GetAwrDbReport por CLI](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/database-management/managed-database/get-awr-db-report.html).
 - [Database Management para ADB Serverless: requisitos y funciones avanzadas con costo adicional](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/mdw-oci-database-management.html).
 - [Matriz de funciones y credenciales de diagnóstico](https://docs.oracle.com/en-us/iaas/database-management/doc/database-management-feature-support-matrix.html).

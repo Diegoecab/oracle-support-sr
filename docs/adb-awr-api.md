@@ -1,166 +1,67 @@
-# ADB: obtener un AWR por API y adjuntarlo a un SR
+# ADB: obtener el AWR por Database Management y adjuntarlo al SR
 
-El ejemplo separa dos tareas: obtener el reporte mediante una API de la base y usar oracle-support-sr para adjuntarlo y actualizar el caso. La recolección de AWR queda fuera de la skill y no requiere MCP.
+El asistente obtiene el reporte con la **API de Database Management** y usa **oracle-support-sr** para adjuntarlo, publicar la actualización y comprobar su recepción. El usuario describe lo que necesita; el asistente consulta los identificadores, resuelve los snapshots y guarda el archivo. No hace falta entrar a la consola, preparar archivos SQL ni copiar valores técnicos entre comandos.
 
-Se ejecutó con ADB Serverless Always Free 19c mediante ORDS REST-Enabled SQL, sin habilitar Database Management. La generación y descarga del HTML completo tardó aproximadamente 6 segundos; ese tiempo no incluye aprovisionamiento, configuración de diagnósticos, captura de snapshots ni trabajo del asistente. La disponibilidad y los privilegios deben comprobarse para cada base.
+La recolección se orquesta con las herramientas CLI/SDK del asistente, fuera de la skill de SRs. Este documento define ese flujo; instalar el plugin no despliega un recolector ni habilita Database Management. La ejecución de esta vía con una ADB aún está pendiente de validación operativa.
 
-## Un beneficio adicional para el seguimiento
+## Qué pide el usuario
 
-Para un equipo que hoy obtiene y adjunta el AWR manualmente, automatizar la recolección y la actualización del SR puede reducir trabajo adicional: recuperar el contexto, elegir la ventana, descargar el reporte, localizar el archivo, cargarlo y comprobar su recepción. Si ya existe una recolección automatizada, se puede reutilizar y sumar la gestión del caso con la skill.
-
-En el piloto, la llamada de upload tardó aproximadamente 5 segundos para el reporte de unos 311 KB. Esa medición y los 6 segundos de generación/descarga son parciales. El ciclo completo incluye preparación, acceso, snapshots, revisión del contenido y espera de procesamiento; puede superar los cinco minutos por gestión del escenario de referencia.
-
-El ahorro potencial de automatizar AWR se evalúa por separado del 83 % estimativo de la guía. Para medirlo, comparar el mismo seguimiento con y sin automatización, distinguiendo tiempo activo de la persona y tiempo transcurrido hasta confirmar RECEIVED. Todavía no hay una medición comparativa del ciclo AWR completo.
-
-## Requisitos
-
-- Base accesible por HTTPS, URL ORDS obtenida de la API de ADB y una identidad de base autorizada para las consultas y DBMS_WORKLOAD_REPOSITORY. En el laboratorio se usó ADMIN de una base nueva; para uso operativo, definir los privilegios de diagnóstico necesarios.
-- Dos snapshots propios de la PDB, de la misma instancia y sin reinicio entre ellos, que cubran el período relevante.
-- OCI CLI para las operaciones del control plane y curl para las llamadas HTTPS. En Windows, usar curl.exe.
-- Identidad de soporte y permisos para actualizar el SR y adjuntar archivos, según los [requisitos de la guía ADB](adb.md).
-
-Las credenciales de la base y las de OCI son independientes. No poner contraseñas en argumentos, historial, archivos compartidos ni en el SR. Los comandos curl con --user ADMIN solicitan la contraseña de forma interactiva; conservan la validación TLS y no siguen redirecciones.
-
-## 1. Crear una base de laboratorio, si hace falta
-
-Este paso es independiente de la gestión del SR. Usar un compartment de pruebas autorizado, la región home y un cupo Always Free disponible. No convertir automáticamente a una opción paga si la creación falla.
-
-Preparar adb-create.private.json fuera del repositorio y de carpetas compartidas, con una contraseña generada y almacenada de forma segura. Los marcadores se reemplazan por valores comprobados:
-
-```json
-{
-  "compartmentId": "<COMPARTMENT_OCID>",
-  "dbName": "SRAWRDEMO",
-  "displayName": "sr-awr-api-demo",
-  "dbWorkload": "OLTP",
-  "dbVersion": "19c",
-  "adminPassword": "<CONTRASENA_GENERADA_SEGURA>",
-  "isFreeTier": true,
-  "cpuCoreCount": 1,
-  "dataStorageSizeInGbs": 20,
-  "isAutoScalingEnabled": false,
-  "isAutoScalingForStorageEnabled": false,
-  "isMtlsConnectionRequired": true,
-  "licenseModel": "LICENSE_INCLUDED"
-}
-```
+Con la base y el SR identificados en la conversación:
 
 ```text
-oci db autonomous-database create --profile MI_PERFIL --region MI_HOME_REGION --from-json file://adb-create.private.json
+Obtené el AWR de esta ADB para el período del incidente y adjuntalo al SR.
 ```
 
-Conservar el OCID devuelto y comprobar lifecycle-state=AVAILABLE e is-free-tier=true. La creación requiere permisos de aprovisionamiento adicionales a los de soporte. La modalidad Developer de Serverless tiene facturación horaria; no equivale a Always Free.
+El asistente reutiliza el perfil OCI, la región, la base, el SR y la ventana temporal del contexto. Si falta un dato fundamental o hay varias bases o casos posibles, pregunta solo por esa información. No inventa el período del incidente ni pide al usuario que busque OCIDs, DBIDs o números de snapshots que pueda recuperar por API.
 
-## 2. Obtener el endpoint y elegir los snapshots
+## Preparación del entorno
 
-```text
-oci db autonomous-database get --profile MI_PERFIL --autonomous-database-id ADB_OCID --query 'data."connection-urls"."ords-url"' --raw-output
-```
+Antes de usar este flujo, la ADB debe tener **Diagnostics & Management habilitado**, conectividad y una credencial de diagnóstico válida. Oracle exige una credencial ADMIN para las funciones avanzadas de Performance Hub que lo requieren. Las funciones avanzadas tienen costo adicional; su habilitación es una tarea de configuración separada y autorizada, no una acción implícita al solicitar un AWR.
 
-Usar la URL devuelta y completar el endpoint de la identidad habilitada para REST-Enabled SQL: https://HOST/ords/admin/_/sql para ADMIN. No construir el hostname a partir del nombre visible de la base.
+Se necesitan:
 
-Guardar como snapshots.sql:
+- Perfil OCI o principal de ejecución autorizado en la región de la base, y CLI o SDK Python disponibles para el asistente.
+- Permisos de descubrimiento y lectura de la base administrada y sus datos AWR. GetAwrDbReport requiere DBMGMT_MANAGED_DB_READ; usar el alcance mínimo definido en la [referencia de IAM](https://docs.oracle.com/en-us/iaas/database-management/doc/policy-details-database-management.html).
+- Conexión y credencial de Database Management configuradas, con los permisos separados sobre named credentials o secretos que correspondan. Las credenciales permanecen en su almacenamiento autorizado, fuera de la conversación y del SR.
+- Snapshots retenidos de la base y el contenedor correctos que permitan generar el reporte para la ventana relevante.
+- Identidad de soporte y permisos para actualizar el SR y cargar adjuntos, según los [requisitos de la guía ADB](adb.md).
 
-```sql
-select name, dbid, con_id
-from v$pdbs
-where con_id=to_number(sys_context('USERENV','CON_ID'));
+El asistente comprueba los requisitos por las interfaces disponibles. Si falta configuración o acceso, informa el impedimento y detiene la recolección. No crea una base, habilita servicios, cambia permisos, genera snapshots ni pasa a otra interfaz de recolección automáticamente.
 
-select dbid, snap_id, instance_number, startup_time,
-       begin_interval_time, end_interval_time
-from awr_pdb_snapshot
-where dbid=(select dbid from v$pdbs
-            where con_id=to_number(sys_context('USERENV','CON_ID')))
-order by snap_id, instance_number;
-```
+## Qué ejecuta el asistente
 
-```text
-curl.exe --fail-with-body --silent --show-error --max-time 180 --user ADMIN --header "Content-Type: application/sql" --data-binary "@snapshots.sql" "https://HOST/ords/admin/_/sql" --output snapshots.json
-```
+| Etapa | Operaciones por API | Resultado |
+| --- | --- | --- |
+| Identificar la base | ListManagedDatabases y GetManagedDatabase | Base administrada correspondiente al recurso y la región solicitados. Una coincidencia de nombre por sí sola no prueba la identidad. |
+| Resolver la ventana | ListAwrDbs, SummarizeAwrDbSnapshotRanges y ListAwrDbSnapshots | Identidad AWR, contenedor e instancias pertinentes, con snapshots continuos y su cobertura temporal. |
+| Obtener el reporte | GetAwrDbReport con reportType=AWR y reportFormat=HTML | Contenido HTML para la selección verificada. |
+| Preparar la evidencia | Guardado y validación local del contenido devuelto | Archivo HTML completo, base y ventana identificadas, tamaño y SHA-256. |
+| Entregarla al SR | oracle-support-sr: attach, comment y get | Adjunto restringido, nota con contexto y comprobación posterior del estado. |
 
-Comprobar tanto HTTP como el result de cada sentencia: HTTP 200 puede incluir un error SQL. Elegir DBID, instancia y snapshots de la PDB actual. Descartar datos heredados de una plantilla o del root. El intervalo del informe va desde end_interval_time del snapshot inicial hasta end_interval_time del final.
+El asistente recorre las páginas de resultados y resuelve los parámetros con los datos devueltos. Conserva la ventana solicitada y la efectiva. Si los snapshots no alcanzan, la selección es ambigua o el reporte no permite comprobar la base y el intervalo, informa la limitación antes de subirlo. Una respuesta vacía o un error no se adjuntan como reporte.
 
-En una base nueva puede no haber snapshots. La captura manual y los ajustes de AWR son cambios de diagnóstico separados, que se ejecutan solo en el laboratorio autorizado. El procedimiento con CREATE_SNAPSHOT(flush_level=>'LITE', dbid=>DBID_DE_LA_PDB) funcionó en el piloto. Si la programación local está deshabilitada, revisar MODIFY_SNAPSHOT_SETTINGS con el DBA. Ante un timeout, comprobar las vistas de snapshots y sesiones antes de repetir la captura.
+La nota identifica el archivo, el recurso, las ventanas UTC solicitada y efectiva, los snapshots e instancias utilizados y el método de obtención. Antes del upload se revisa el contenido: AWR puede incluir SQL y datos sensibles. Si hace falta retirar contenido, se conserva el original local y se identifica la copia que se compartirá.
 
-## 3. Generar y descargar el AWR completo
+## Aprobación y resultado
 
-Guardar como awr.sql y reemplazar los cuatro marcadores por los valores recuperados. Esta consulta reúne las líneas en un único CLOB para evitar perder páginas o truncar el reporte mediante el formato de texto de SQLcl:
+La recolección y la preparación no requieren que el usuario arme archivos o ejecute comandos. En **MANUAL**, la skill presenta el archivo y la nota antes de publicarlos; en **AUTO**, realiza las operaciones incluidas en el alcance autorizado. Se conservan los modos de aprobación de la skill.
 
-```sql
-select xmlagg(xmlelement(e, output||chr(10)) order by line_number)
-  .extract('//text()').getclobval() as report_html_xml
-from (
-  select rownum as line_number, output
-  from table(dbms_workload_repository.awr_report_html(
-    l_dbid => <DBID_DE_LA_PDB>,
-    l_inst_num => <INSTANCE_NUMBER>,
-    l_bid => <BEGIN_SNAPSHOT>,
-    l_eid => <END_SNAPSHOT>,
-    l_options => 0))
-);
-```
+Después del upload, el asistente consulta el SR. Un envío aceptado puede quedar en PROCESSING antes de pasar a RECEIVED. Comprueba el archivo y la nota por separado, y devuelve el enlace del caso, la actualización literal publicada, el nombre y tamaño del adjunto y el estado verificado. Si la recepción sigue pendiente, lo indica sin volver a subirlo a ciegas.
 
-```text
-curl.exe --fail-with-body --silent --show-error --max-time 180 --user ADMIN --header "Content-Type: application/sql" --data-binary "@awr.sql" "https://HOST/ords/admin/_/sql" --output awr-response.json
-```
+## Beneficio y tiempos
 
-Guardar como extract_awr.py y ejecutar python extract_awr.py:
+Este flujo reduce la navegación, búsqueda de snapshots, descarga y carga manual del archivo. El usuario hace el pedido y recibe el resultado del recorrido.
 
-```python
-from html import unescape
-import hashlib
-import json
-from pathlib import Path
+El ahorro adicional se mide por separado del 83 % estimativo de la guía: tiempo activo de la persona y tiempo transcurrido hasta confirmar RECEIVED. **Todavía no hay una medición de punta a punta con la API de Database Management.** Los tiempos de generación obtenidos con otro mecanismo no se atribuyen a esta API. El ciclo completo con AWR puede superar los cinco minutos por gestión del escenario de referencia.
 
-data = json.loads(Path("awr-response.json").read_text(encoding="utf-8"))
-assert data["items"] and all(x.get("result") == 0 for x in data["items"])
-result = data["items"][0]["resultSet"]
-assert result["hasMore"] is False and len(result["items"]) == 1
-html = unescape(result["items"][0]["report_html_xml"])
-assert "<html" in html.lower() and "</html>" in html.lower()
-target = Path("awr.html")
-with target.open("x", encoding="utf-8", newline="") as output:
-    output.write(html)
-print(target.name, target.stat().st_size, hashlib.sha256(target.read_bytes()).hexdigest())
-```
-
-La decodificación retira una sola capa de escape XML; el archivo conserva el HTML del reporte. Revisar PDB, DBID, ventana, contenido y tamaño antes de compartirlo. AWR puede incluir metadatos, SQL y literales sensibles. No adjuntar una respuesta parcial, un mensaje de error ni un informe de otra base.
-
-## 4. Adjuntarlo y actualizar el SR con la skill
-
-Con el SR y el perfil ya identificados en la conversación:
-
-```text
-Adjuntá awr.html al SR que acabamos de abrir y actualizalo con el método de recolección, la ventana del reporte y el resultado.
-```
-
-Internamente, la operación de adjunto usa el helper de la skill:
-
-```text
-python scripts/sr.py --profile MI_PERFIL --evidence-dir ./sr-evidence --output-format readable attach --key SR_KEY --file awr.html --expected-tenancy TENANCY_OCID
-```
-
-En MANUAL, el asistente presenta el caso, el archivo y su hash. Después del OK ejecuta ese mismo borrador con --approval-digest y --execute. AUTO debe elegirse expresamente para un alcance definido. El adjunto es restringido por defecto.
-
-La nota identifica el archivo, la PDB, los snapshots, la ventana UTC y el método de obtención. Después de enviar, la skill consulta el SR: un upload aceptado puede figurar PROCESSING antes de pasar a RECEIVED. La nota y el estado del archivo se verifican por separado; RECEIVED no implica que un ingeniero ya lo haya analizado.
-
-## Otra opción: API de Database Management
-
-Si Diagnostics & Management ya está habilitado con conexión, credenciales y permisos adecuados, GetAwrDbReport permite obtener el contenido del informe directamente mediante OCI CLI/SDK. La habilitación de funciones avanzadas tiene costo adicional. Esta alternativa se verificó en documentación; el ejemplo ejecutado usó REST-Enabled SQL.
-
-```text
-oci database-management managed-database get-awr-db-report --managed-database-id MANAGED_DATABASE_OCID --awr-db-id AWR_DB_ID --begin-sn-id-greater-than-or-equal-to BEGIN_SNAPSHOT --end-sn-id-less-than-or-equal-to END_SNAPSHOT --report-type AWR --report-format HTML --query data.content --raw-output > awr.html
-```
-
-OCI Monitoring permite recuperar series de métricas para complementar la evidencia; no genera el informe AWR.
+OCI Monitoring puede complementar el caso con métricas, pero no genera AWR. El MCP nativo de ADB puede aportar otros diagnósticos mediante herramientas autorizadas; no es un requisito de este flujo.
 
 ## Referencias oficiales
 
-- [REST APIs de Autonomous Database Serverless](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/rest-apis.html).
-- [ORDS: REST-Enabled SQL, autenticación y formato de resultados](https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/26.2/orddg/rest-enabled-sql-service.html).
-- [DBMS_WORKLOAD_REPOSITORY: AWR_REPORT_HTML, snapshots y ajustes](https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_WORKLOAD_REPOSITORY.html).
-- [Always Free: límites y condiciones](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-always-free.html).
-- [Developer: facturación horaria hasta la terminación](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-database-for-developers-billing.html).
-- [AWR por la API/CLI de Database Management](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/database-management/managed-database/get-awr-db-report.html).
-- [Database Management para ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/mdw-oci-database-management.html).
+- [GetAwrDbReport por OCI CLI: filtros, formato y parámetros](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/database-management/managed-database/get-awr-db-report.html).
+- [SDK Python: operaciones de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html).
+- [Modelo AwrDbReport: contenido y formato](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/models/oci.database_management.models.AwrDbReport.html).
+- [Habilitación y conexión de Diagnostics & Management para ADB](https://docs.oracle.com/en-us/iaas/database-management/doc/enable-database-management-autonomous-databases.html).
+- [Matriz de funciones y credenciales requeridas](https://docs.oracle.com/en-us/iaas/database-management/doc/database-management-feature-support-matrix.html).
+- [Permisos de Database Management](https://docs.oracle.com/en-us/iaas/database-management/doc/policy-details-database-management.html).
 - [Carga de adjuntos al SR](https://docs.oracle.com/en-us/iaas/Content/GSG/support/update-incident-add-attachment.htm).

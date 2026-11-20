@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "oracle-support-sr",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Manage OCI support requests and readable updates through the official OCI CLI and Python SDK.",
   "author": {
     "name": "Diego Cabrera"
