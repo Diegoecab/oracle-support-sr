@@ -48,7 +48,9 @@ def literal_report(record):
         execution['target_key'] = source['key']
     elif source.get('target_key') is not None:
         execution['target_key'] = source['target_key']
-    fields = {k: data[k] for k in ('id', 'key', 'problemType', 'problem_type', 'problem-type') if k in data}
+    # Preserve all submitted/returned case fields, with their native names.
+    # Draft and response sources are never combined to fill missing values.
+    fields = {k: value for k, value in data.items() if k != 'ticket'}
     ticket = data.get('ticket')
     if isinstance(ticket, dict):
         # Preserve field names/values, excluding the entire correspondence
@@ -688,7 +690,7 @@ def main(argv=None):
         catalog_path.write_text(json.dumps({'catalog_schema_version': 2, 'tenancy_ocid': service.tenancy, 'captured_at_utc': result['at_utc'], 'routing_verified': False, 'routes': flatten_taxonomy(result['data'])}, indent=2, ensure_ascii=False), encoding='utf-8')
         result['catalog_file'] = str(catalog_path)
     if routing:
-        result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG' if routing['status'] == 'VERIFIED' else 'FIRST_USE_MATCHED_LIVE_CATALOG', 'expected_portal': routing.get('expected_portal'), 'requested_selection': [{k: route.get(k) for k in ('service_group_label', 'service_label', 'category_label', 'subcategory_label')} for route in routing['routes']], 'persisted_classification': 'NOT_VERIFIED', 'current_case_assignment': 'NOT_VERIFIED'}
+        result['routing'] = {'recipe': 'VERIFIED_AND_MATCHED_LIVE_CATALOG' if routing['status'] == 'VERIFIED' else 'FIRST_USE_MATCHED_LIVE_CATALOG', 'expected_portal': routing.get('expected_portal'), 'requested_selection': [{k: route.get(k) for k in ('service_group_label', 'service_group_key', 'service_label', 'service_key', 'category_label', 'category_key', 'subcategory_label', 'subcategory_key', 'region_key')} for route in routing['routes']], 'persisted_classification': 'NOT_VERIFIED', 'current_case_assignment': 'NOT_VERIFIED'}
     if test_plan:
         result['routing'] = {'recipe': 'CANDIDATE_CONTROLLED_TEST', 'test_id': test_plan['test_id'], 'live_catalog_match': True, 'expected_portal': test_plan['expected_portal'], 'persisted_classification': 'NOT_VERIFIED', 'current_case_assignment': 'NOT_VERIFIED', 'production_recipe_created': False}
     if attempt:

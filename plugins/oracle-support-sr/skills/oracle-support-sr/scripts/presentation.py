@@ -102,6 +102,23 @@ def _pick(data, *keys):
     return None
 
 
+def _field_rows(value, path=''):
+    """Flatten field paths for display without translating or inferring values."""
+    if isinstance(value, dict) and value:
+        for key, child in value.items():
+            yield from _field_rows(child, (path + '.' if path else '') + str(key))
+    elif isinstance(value, list) and value:
+        for index, child in enumerate(value):
+            yield from _field_rows(child, path + '[' + str(index) + ']')
+    else:
+        rendered = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        yield '| ' + _md(path) + ' | ' + _md(rendered).replace('\n', '<br>') + ' |'
+
+
+def _field_table(value):
+    return '\n'.join(['| Field | Exact value |', '| --- | --- |', *_field_rows(value)])
+
+
 def render_markdown(report, raw_path=None):
     """Human view of exact field values. The original JSON remains separate."""
     fields = report.get('sr_fields') or {}
@@ -135,6 +152,8 @@ def render_markdown(report, raw_path=None):
     details = _pick(ticket, 'lifecycleDetails', 'lifecycle_details', 'lifecycle-details')
     if state is not None or details is not None:
         lines.append('**Status:** ' + ' / '.join(_md(value) for value in (state, details) if value is not None))
+    impact = {key: ticket[key] for key in ('businessImpact', 'business_impact', 'business-impact', 'impact') if key in ticket}
+    lines.append('**Structured impact:** ' + ('See exact fields below.' if impact else 'Not returned by this source; no value inferred.'))
     description = ticket.get('description')
     if description is not None:
         lines.extend(['', '**Description**', '', _body(description)])
@@ -148,7 +167,35 @@ def render_markdown(report, raw_path=None):
         lines.extend(['', '**Attachment**', '', '```json', json.dumps(attachment, ensure_ascii=False, indent=2), '```'])
     classification = report.get('classification_evidence')
     if classification:
-        lines.extend(['', '**Classification evidence**', '', '```json', json.dumps(classification, ensure_ascii=False, indent=2), '```'])
+        requested = classification.get('requested_selection') or classification.get('requested_catalog')
+        if requested:
+            lines.extend(['', '**Requested classification (catalog selection)**'])
+            for selection in requested:
+                table = ['| Level | Exact catalog label | Catalog key |', '| --- | --- | --- |']
+                for label, stem in [('Service group', 'service_group'), ('Product / service', 'service'),
+                                    ('Category', 'category'), ('Subcategory', 'subcategory')]:
+                    value, selector = selection.get(stem + '_label'), selection.get(stem + '_key')
+                    table.append('| ' + label + ' | ' + (_md(value) if value is not None else 'Not provided') +
+                                 ' | ' + (_md(selector) if selector is not None else 'Not provided') + ' |')
+                lines.extend(['', '\n'.join(table)])
+        lines.append('**Persisted product/category for this SR:** ' + _md(classification.get('persisted_classification', 'NOT_VERIFIED')))
+        lines.append('**Current internal assignment:** ' + _md(classification.get('current_case_assignment', 'NOT_VERIFIED')))
+        if classification.get('expected_portal'):
+            lines.extend(['', '**Recipe expectation (not verification of this case)**', '', _field_table(classification['expected_portal'])])
+    resources = {name: ticket[name] for name in ('resourceList', 'resource_list', 'resource-list') if name in ticket}
+    structured = {name: ticket[name] for name in ('product', 'service', 'category', 'subCategory', 'subcategory', 'issueType') if name in ticket}
+    if resources or structured:
+        label = 'Submitted resource/classification fields' if source == 'DRAFT_PAYLOAD' else 'Resource/classification fields returned by this source'
+        lines.extend(['', '**' + label + '**', '', _field_table(dict(resources, **structured))])
+    else:
+        lines.append('**Returned resource/product/category fields:** Not returned by this source; verification pending.')
+    shown = {'title', 'description', 'severity', 'lifecycleState', 'lifecycle_state', 'lifecycle-state',
+             'lifecycleDetails', 'lifecycle_details', 'lifecycle-details', 'resource', *resources, *structured}
+    remaining = {key: value for key, value in ticket.items() if key not in shown}
+    account = {key: value for key, value in fields.items()
+               if key not in ('ticket', 'id', 'key', 'problemType', 'problem_type', 'problem-type')}
+    if remaining or account:
+        lines.extend(['', '**Additional case fields (same source)**', '', _field_table(dict(account, ticket=remaining))])
     lines.extend(['', '<details>', '<summary>Technical details</summary>', ''])
     for name, value in execution.items():
         if value is not None:

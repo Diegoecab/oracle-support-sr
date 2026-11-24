@@ -41,6 +41,12 @@ Instalar el plugin no configura la identidad OCI ni otorga permisos. La skill ut
 Abr? una sesi?n nueva despu?s de instalar. En Codex, invoc? la skill desde el plugin instalado o ped? usar oracle-support-sr. En Claude, el nombre de la skill instalada como plugin es `/oracle-support-sr:oracle-support-sr`; una copia standalone utiliza `/oracle-support-sr`. No hace falta un MCP para este piloto. El asistente puede verificar el entorno sin acceder a OCI con `python scripts/run_sr.py --check-runtime`.
 
 
+## Idioma y resultado en pantalla
+
+Todo el contenido nuevo enviado a Oracle se redacta en ingl?s: t?tulo, descripci?n, impacto, notas y explicaciones de diagn?sticos. Los nombres de recursos, identificadores, etiquetas del cat?logo y logs originales se preservan.
+
+La respuesta muestra la descripci?n completa y los campos clave del SR en pantalla, incluidos producto/servicio, categor?a y subcategor?a con sus claves. La clasificaci?n solicitada se distingue de la devuelta; si no se verific? la persistencia, se indica NOT_VERIFIED junto al campo. Los enlaces a evidencia complementan esa vista.
+
 ## Primera prueba, sin escrituras
 
 ```text

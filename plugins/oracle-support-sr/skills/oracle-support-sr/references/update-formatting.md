@@ -1,5 +1,10 @@
 # Readable SR correspondence
 
+Author every new title, description, impact narrative, note and attachment description in English, regardless of conversation language. Preserve identifiers, resource names, exact catalog labels and original diagnostics. Check language before sending; the helper does not translate or reliably detect language. Existing retrieved fields remain literal, even when historical text is not English.
+
+After each operation, show the full case card on screen, not only evidence links: exact title and full description, type/severity/impact, status, resource context, requested classification with its catalog keys, returned classification separately, attachment state and the exact outgoing update. Label absent verification NOT_VERIFIED beside product/category. A create echo or catalog match does not prove the persisted portal category or Oracle internal queue.
+
+
 The observed My Oracle Support portal interpreted correspondence as HTML and collapsed bare newlines. `comment` and `close` now use `--text-format readable` by default. Write the source note as text with blank paragraphs, `##` section titles and `- ` bullets. The helper emits escaped `<p>`, `<br>`, `<strong>`, `<ul>` and `<li>` elements. It treats log content and embedded HTML as text, never as markup to execute. It does not implement general Markdown, tables or arbitrary rich HTML.
 
 Suggested note:
