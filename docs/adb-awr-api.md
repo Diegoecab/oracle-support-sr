@@ -2,7 +2,7 @@
 
 El asistente obtiene el reporte con la **API de Database Management** y usa **oracle-support-sr** para adjuntarlo, publicar la actualización y comprobar su recepción. El usuario describe lo que necesita; el asistente consulta los identificadores, resuelve los snapshots y guarda el archivo. No hace falta entrar a la consola, preparar archivos SQL ni copiar valores técnicos entre comandos.
 
-La recolección se orquesta con las herramientas CLI/SDK del asistente, fuera de la skill de SRs. Este documento define ese flujo; instalar el plugin no despliega un recolector ni habilita Database Management. La ejecución de esta vía con una ADB aún está pendiente de validación operativa.
+La recolección se orquesta con las herramientas CLI/SDK del asistente, fuera de la skill de SRs. Instalar el plugin no despliega un recolector ni habilita Database Management. Esta vía se verificó con una ADB de laboratorio. El 24/11/2026 se observó el flujo de apertura, AWR, adjunto, nota y verificación en 4 min 13 s; [ver el ejemplo y sus límites](adb.md#ejemplo-observado). Los 30–40 minutos de la alternativa manual son una estimación del usuario.
 
 ## Qué pide el usuario
 

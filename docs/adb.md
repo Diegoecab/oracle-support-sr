@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.16. Revisión: 20/11/2026.
+Versión 0.9.17. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -10,7 +10,7 @@ Pongo a disposición [oracle-support-sr](https://github.com/Diegoecab/oracle-sup
 
 Esta guía reúne instalación, permisos, campos y ejemplos para que el equipo pruebe el flujo con casos autorizados y evalúe su adopción. También detalla los modos de aprobación y las limitaciones identificadas para este servicio.
 
-**Un plus en ADB: del AWR al SR con menos pasos.** El asistente obtiene el reporte mediante la [API de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report) y usa la skill para adjuntarlo y actualizar el caso. Resuelve por API los identificadores y snapshots, guarda el HTML y comprueba la recepción; el usuario no prepara archivos SQL ni copia parámetros. El [flujo de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) requiere Diagnostics & Management configurado y permanece fuera de la skill de SRs. El [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) puede aportar otros diagnósticos mediante herramientas autorizadas. El [beneficio adicional del AWR](#plus-awr) se evalúa aparte del escenario estimativo del 83 %; la ejecución de esta vía aún está pendiente de validación operativa.
+**Un plus en ADB: del AWR al SR con menos pasos.** El asistente obtiene el reporte mediante la [API de Database Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html#get_awr_db_report) y usa la skill para adjuntarlo y actualizar el caso. Resuelve por API los identificadores y snapshots, guarda el HTML y comprueba la recepción; el usuario no prepara archivos SQL ni copia parámetros. El [flujo de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) requiere Diagnostics & Management configurado y permanece fuera de la skill de SRs. El [MCP nativo de ADB](https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/use-mcp-server.html) puede aportar otros diagnósticos mediante herramientas autorizadas. El [beneficio adicional del AWR](#plus-awr) se evalúa aparte del escenario estimativo del 83 %. [Ver el ejemplo observado: 4 min 13 s](#ejemplo-observado).
 
 ### Tres ejemplos: del pedido al resultado
 
@@ -45,7 +45,7 @@ Resultado: SR creado y consultado para comprobar su contenido.
 Obtené el AWR del período del incidente por Database Management, adjuntalo al SR y publicá la actualización.
 ```
 
-Flujo AWR esperado: ejecución por Database Management pendiente de validación operativa; se obtiene el reporte por API antes del upload.
+Este ejemplo es ilustrativo. La vía de Database Management se probó en laboratorio; el ejemplo observado de esta guía muestra el flujo y sus límites. El reporte se obtiene por API antes del upload.
 
 **Salida ilustrativa del asistente**
 
@@ -110,6 +110,65 @@ Verificación: cierre confirmado al consultar el SR; el historial se conserva.
 - [OCI CLI: Support Management](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/support.html).
 - [SDK Python: IncidentClient de Support Management](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/cims/client/oci.cims.IncidentClient.html).
 
+<a id="ejemplo-observado"></a>
+
+## Un SR con AWR adjunto en 4 min 13 s
+
+El 24/11/2026 se observó una ejecución de **4 min 13 s** para reunir el contexto de la base, obtener el AWR por **Database Management**, crear el SR, cargar el HTML como adjunto restringido, publicar la nota y consultar el caso hasta comprobar **RECEIVED**.
+
+La duración corresponde al tiempo mostrado por el asistente en la captura compartida. Los recibos locales corroboran el alta, el upload, la actualización y la recepción del archivo. Para compartir este ejemplo se reemplazaron el nombre de la base, SR, OCIDs, DBID, nombre del archivo y claves del catálogo; se mantienen el flujo, la clasificación solicitada, los estados, la ventana y el tamaño del reporte.
+
+| Mismo trabajo | Tiempo | Base de comparación |
+| --- | --- | --- |
+| Consola y carga manual | 30–40 min | Estimación del usuario; no se cronometró una ejecución manual equivalente. |
+| Asistente con APIs y skill de SRs | 4 min 13 s | Duración observada de este ejemplo, con el entorno previamente configurado. |
+| Ahorro estimado | 25 min 47 s–35 min 47 s | Aproximadamente **86–89 % menos tiempo** respecto de la estimación manual. |
+
+La comparación incluye localizar los datos de la DB —OCID, compartment y región—, seleccionar la clasificación, preparar el texto en inglés, obtener y guardar el AWR, completar el SR, cargar el archivo, publicar la nota y revisar el resultado. Requiere autenticación vigente, SDK compatible y Diagnostics & Management configurado. Excluye esa preparación inicial y el tiempo posterior de respuesta de Oracle. Es una observación de laboratorio, no una garantía ni una medición general del servicio.
+
+**Cobertura del AWR:** se pidieron las últimas dos horas; los snapshots 93–95 cubrieron 11:02:49–13:02:26, hora de Buenos Aires. La ventana solicitada terminaba a las 13:37:26. La diferencia de aproximadamente 35 minutos se informó; no se presenta el reporte como cobertura exacta de esa ventana.
+
+**Clasificación:** se comprobó la selección contra el catálogo. La clasificación persistida y la asignación interna no fueron devueltas en la consulta del caso y continúan como **NOT_VERIFIED**. El estado RECEIVED corresponde al adjunto.
+
+### Pedido del usuario, anonimizado
+
+```prompt
+Usá oracle-support-sr para crear un SR de severidad MEDIA para la DB DB_PRUEBA, por problemas generales de performance. Obtené el AWR de las últimas 2 horas, adjuntalo al SR y publicá la actualización.
+```
+
+### Transcripción anonimizada del resultado observado
+
+```text
+SR: SR_DEL_EJEMPLO
+Title: DB_PRUEBA: general database performance problems
+Type: TECH | Severity: MEDIUM | Status: ACTIVE / PENDING_WITH_ORACLE
+
+Description saved (identifiers replaced for this document)
+We are experiencing general performance problems on DB_PRUEBA and request MEDIUM severity. Please investigate the cause and recommend corrective actions. Detailed business impact and affected SQL statements have not yet been established.
+Service: Autonomous Database Serverless, us-ashburn-1. Current state: AVAILABLE.
+Resource: [RESOURCE_OCID]
+Compartment: [COMPARTMENT_OCID]
+Routing: Autonomous Database Serverless / Database Performance / Overall Database Performance issues and not specific to SQLs.
+We collected an AWR through Database Management, DBID [DBID], snapshots 93-95, 2026-11-24T14:02:49+00:00 to 2026-11-24T16:02:26+00:00. These are the latest two complete intervals available. The rolling two-hour window cannot be covered exactly because the latest snapshot ends at 2026-11-24T16:02:26+00:00. We will attach the report and publish its diagnostic context.
+
+Requested classification
+Product / service: Autonomous Database Serverless
+Category: Database Performance
+Subcategory: Overall Database Performance issues and not specific to SQLs
+Catalog keys: [KEYS_FROM_LIVE_CATALOG]
+Persisted classification and internal assignment: NOT_VERIFIED
+Structured impact: not returned; no value inferred
+
+Attachment: DB_PRUEBA-AWR.html | 697,743 bytes | Restricted | RECEIVED
+Update: published and verified by a subsequent case read
+Content of the update: report, resource, actual snapshot window and coverage limitation
+
+Requested AWR window: 2026-11-24 14:37:26–16:37:26 UTC
+Actual AWR window: 2026-11-24 14:02:49–16:02:26 UTC
+The latest available snapshot did not cover the final 35 minutes of the requested window. This limitation was disclosed in the SR.
+```
+
+
 ## Tiempo estimado para un SR
 
 1 apertura + 4 seguimientos = 5 gestiones del mismo SR. Cada gestión incluye revisar la novedad, reunir la información, enviarla y verificar el resultado.
@@ -136,12 +195,12 @@ Si el equipo todavía genera y descarga los AWR desde el portal y después los c
 
 El usuario hace el pedido en lenguaje natural. No prepara scripts, elige números de snapshots ni descarga archivos a mano. El flujo requiere Diagnostics & Management configurado; su habilitación y costo adicional se tratan por separado. La recolección permanece fuera de oracle-support-sr y respeta los modos MANUAL y AUTO para publicar en el SR.
 
-El ciclo AWR completo puede superar los cinco minutos por gestión usados en el ejemplo. El ahorro adicional se evalúa por separado del 83 %; todavía no tiene un porcentaje medido.
+El [ejemplo observado del 24/11/2026](#ejemplo-observado) completó apertura, AWR, adjunto, nota y verificación en 4 min 13 s. Frente a los 30–40 minutos manuales estimados por el usuario, representa un ahorro estimado de 86–89 %. Es una gestión de apertura; el calculador del 83 % modela por separado un SR con cinco interacciones.
 
 <details>
 <summary>Cómo medir el ahorro adicional</summary>
 
-Comparar el mismo seguimiento con y sin automatización, registrando el tiempo activo de la persona y el tiempo transcurrido hasta confirmar RECEIVED. Incluir identificación de la base y ventana, recolección, validación, upload y procesamiento. Todavía no se midió el ciclo completo con GetAwrDbReport; no se le atribuyen tiempos de generación obtenidos con otra interfaz.
+Comparar el mismo seguimiento con y sin automatización, registrando el tiempo activo de la persona y el tiempo transcurrido hasta confirmar RECEIVED. Incluir identificación de la base y ventana, recolección, validación, upload y procesamiento. El ejemplo observado usa GetAwrDbReport y excluye la configuración inicial. La alternativa manual es una estimación, no una ejecución comparativa cronometrada.
 
 </details>
 
@@ -255,10 +314,10 @@ Se necesitan Git y acceso HTTPS al repositorio público. Después de instalar, a
 
 </details>
 
-En Codex, pedir usar oracle-support-sr. En Claude, la skill del plugin se invoca como `/oracle-support-sr:oracle-support-sr`. El asistente debe usar el intérprete Python que tenga el SDK instalado.
+En Codex, pedir usar oracle-support-sr. En Claude, la skill del plugin se invoca como `/oracle-support-sr:oracle-support-sr`. La skill usa un entorno aislado con SDK 2.177.0, compartido por ambos agentes y con soporte de adjuntos comprobado antes de iniciar el flujo. La primera preparación necesita venv/pip e Internet; no modifica el Python global ni OCI CLI.
 
 ```text
-python -m pip install "oci>=2.177.0,<3"
+python scripts/run_sr.py --check-runtime
 ```
 
 La base propuesta para el piloto es Python 3.11 o posterior. Se verificó el helper con SDK 2.177.0 y CLI 3.82.0; revisar compatibilidad al actualizar. El backend CLI requiere además OCI CLI en PATH. No se necesita una VM dedicada ni un MCP para gestionar SRs.

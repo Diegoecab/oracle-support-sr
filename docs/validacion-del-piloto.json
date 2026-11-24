@@ -1,5 +1,5 @@
 {
-  "version": "0.9.16",
+  "version": "0.9.17",
   "sdk_local_compatibility": "2.177.0",
   "sdk_live_get_verified": "2.177.0",
   "sdk_original_live_cycle": "2.152.0",
@@ -58,7 +58,7 @@
   "marketplace_rename_installed_clients_migrated": false,
   "customer_guides_classification_section_removed": true,
   "adb_awr_database_management_api_documented": true,
-  "adb_awr_database_management_api_live_tested": false,
+  "adb_awr_database_management_api_live_tested": true,
   "adb_awr_rest_enabled_sql_live_tested": true,
   "adb_awr_rest_enabled_sql_free_tier_live_tested": true,
   "adb_awr_rest_enabled_sql_collection_seconds": 6.024,
@@ -84,5 +84,19 @@
   "customer_summary_examples_are_fictional": true,
   "customer_summary_examples_before_official_documentation": true,
   "customer_illustrative_outputs_terminal_style": true,
-  "customer_illustrative_outputs_copy_button": true
+  "customer_illustrative_outputs_copy_button": true,
+  "adb_observed_workflow_date": "2026-11-24",
+  "adb_observed_workflow_seconds": 253,
+  "adb_manual_comparator_minutes_estimated": [
+    30,
+    40
+  ],
+  "adb_manual_comparator_measured": false,
+  "adb_observed_workflow_attachment_received": true,
+  "adb_example_identifiers_replaced": true,
+  "adb_awr_exact_rolling_window_covered": false,
+  "adb_observed_saving_percent_estimated_rounded": [
+    86,
+    89
+  ]
 }

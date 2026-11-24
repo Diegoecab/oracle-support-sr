@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.16. Revisión: 20/11/2026.
+Versión 0.9.17. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -215,10 +215,10 @@ Se necesitan Git y acceso HTTPS al repositorio público. Después de instalar, a
 
 </details>
 
-En Codex, pedir usar oracle-support-sr. En Claude, la skill del plugin se invoca como `/oracle-support-sr:oracle-support-sr`. El asistente debe usar el intérprete Python que tenga el SDK instalado.
+En Codex, pedir usar oracle-support-sr. En Claude, la skill del plugin se invoca como `/oracle-support-sr:oracle-support-sr`. La skill usa un entorno aislado con SDK 2.177.0, compartido por ambos agentes y con soporte de adjuntos comprobado antes de iniciar el flujo. La primera preparación necesita venv/pip e Internet; no modifica el Python global ni OCI CLI.
 
 ```text
-python -m pip install "oci>=2.177.0,<3"
+python scripts/run_sr.py --check-runtime
 ```
 
 La base propuesta para el piloto es Python 3.11 o posterior. Se verificó el helper con SDK 2.177.0 y CLI 3.82.0; revisar compatibilidad al actualizar. El backend CLI requiere además OCI CLI en PATH. No se necesita una VM dedicada ni un MCP para gestionar SRs.
