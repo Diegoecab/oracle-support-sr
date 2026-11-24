@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.15. Revisión: 20/11/2026.
+Versión 0.9.16. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -70,7 +70,7 @@ Acceso: restringido
 Estado del adjunto: RECEIVED
 
 Nota publicada
-Attached awr.html, obtained through the Database Management GetAwrDbReport API for the affected database. The report covers 2026-01-15 10:00 to 11:00 UTC. Please review the AWR evidence and recommend the next diagnostic steps.
+We have attached awr.html, obtained through the Database Management GetAwrDbReport API for the affected database. The report covers 2026-01-15 10:00 to 11:00 UTC. Please review the AWR evidence and recommend the next diagnostic steps.
 
 Verificación: nota y recepción del archivo confirmadas al consultar el SR.
 ```
@@ -98,7 +98,7 @@ Response times increased in a non-production Autonomous Database Serverless inst
 We will provide an AWR report for the affected period. Please investigate and recommend the next diagnostic steps.
 
 Motivo publicado
-The issue has been resolved and the result validated in the non-production environment. Please close this service request.
+We have verified that the issue is resolved in our non-production environment. Please close this service request.
 
 Verificación: cierre confirmado al consultar el SR; el historial se conserva.
 ```

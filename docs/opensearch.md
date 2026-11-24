@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.15. Revisión: 20/11/2026.
+Versión 0.9.16. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -67,7 +67,7 @@ Acceso: restringido
 Estado del adjunto: RECEIVED
 
 Nota publicada
-Attached cluster-logs.txt with the log entries collected for the incident window. Please correlate this evidence with the reported search latency and advise on the next diagnostic steps.
+We have attached cluster-logs.txt with the log entries collected for the incident window. Please correlate this evidence with the reported search latency and advise on the next diagnostic steps.
 
 Verificación: nota y recepción del archivo confirmadas al consultar el SR.
 ```
@@ -95,7 +95,7 @@ Search latency increased in a non-production cluster during the incident window.
 We will provide the relevant cluster logs. Please investigate and advise on the next diagnostic steps.
 
 Motivo publicado
-The issue has been resolved and the result validated in the non-production environment. Please close this service request.
+We have verified that the issue is resolved in our non-production environment. Please close this service request.
 
 Verificación: cierre confirmado al consultar el SR; el historial se conserva.
 ```

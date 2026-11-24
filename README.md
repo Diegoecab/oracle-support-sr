@@ -43,7 +43,7 @@ Abr? una sesi?n nueva despu?s de instalar. En Codex, invoc? la skill desde el pl
 
 ## Idioma y resultado en pantalla
 
-Todo el contenido nuevo enviado a Oracle se redacta en ingl?s: t?tulo, descripci?n, impacto, notas y explicaciones de diagn?sticos. Los nombres de recursos, identificadores, etiquetas del cat?logo y logs originales se preservan.
+Todo el contenido nuevo enviado a Oracle se redacta en ingl?s: t?tulo, descripci?n, impacto, notas y explicaciones de diagn?sticos. Las notas hablan en primera persona como el cliente que se dirige a Oracle Support: ?We collected??, ?We have attached??, ?Please investigate??. No mencionan sesiones de chat, al asistente ni coordinaciones internas. Los nombres de recursos, identificadores, etiquetas del cat?logo y logs originales se preservan.
 
 La respuesta muestra la descripci?n completa y los campos clave del SR en pantalla, incluidos producto/servicio, categor?a y subcategor?a con sus claves. La clasificaci?n solicitada se distingue de la devuelta; si no se verific? la persistencia, se indica NOT_VERIFIED junto al campo. Los enlaces a evidencia complementan esa vista.
 
