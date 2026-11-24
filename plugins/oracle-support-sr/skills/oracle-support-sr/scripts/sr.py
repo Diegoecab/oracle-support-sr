@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Portable OCI Support helper. MANUAL is default; writes require explicit execution."""
+"""Portable OCI Support helper. AUTO is default; writes require explicit execution and authorized scope."""
 import argparse
 import datetime as dt
 import hashlib
@@ -542,7 +542,7 @@ def parser():
     result.add_argument('--cli', default='oci', help='CLI executable path')
     result.add_argument('--legacy-csi', help='Genuine verified CSI for a legacy CLI only')
     result.add_argument('--problem-type', choices=('TECH', 'ACCOUNT'), default='TECH')
-    result.add_argument('--mode', type=str.upper, choices=('MANUAL', 'AUTO'), default='MANUAL', help='MANUAL requires approval of the exact draft; AUTO is only for an explicitly authorized workflow')
+    result.add_argument('--mode', type=str.upper, choices=('MANUAL', 'AUTO'), default='AUTO', help='AUTO (default) executes only the authorized workflow; MANUAL requires approval of the exact draft; closure always requires manual review')
     result.add_argument('--evidence-dir', required=True)
     subs = result.add_subparsers(dest='operation', required=True)
     for name in ('preflight', 'list', 'taxonomy', 'get', 'create', 'test-create', 'comment', 'close', 'attach'):

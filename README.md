@@ -51,9 +51,9 @@ Para operar, usá pedidos naturales: "Abrí un SR por este error", "Qué novedad
 
 ## Modos y aprobación
 
-MANUAL es el modo predeterminado: las consultas y los borradores pueden avanzar, pero antes de cada escritura muestra la acción, cuenta/SR, texto y adjuntos y espera el OK al contenido concreto. Si cambian, se revisa la nueva versión. Una aprobación de ese mismo borrador se reutiliza.
+AUTO es el modo predeterminado para crear, comentar y adjuntar dentro del pedido concreto. MANUAL se elige a pedido del usuario: las consultas y los borradores pueden avanzar, pero antes de cada escritura muestra la acción, cuenta/SR, texto y adjuntos y espera el OK al contenido concreto. Si cambian, se revisa la nueva versión. Una aprobación de ese mismo borrador se reutiliza.
 
-AUTO se elige expresamente para un trabajo definido, por ejemplo: "Usá AUTO para responder este SR con estas comprobaciones y adjuntar el diagnóstico". Ejecuta las acciones autorizadas y vuelve a MANUAL al terminar. Desde 0.9.0 el primer uso de una selección inequívoca del catálogo respeta AUTO, sin otro OK. Cerrar un SR sigue requiriendo aprobación manual del borrador exacto, incluso en AUTO. Cada sesión nueva comienza en MANUAL. Estos modos no modifican los permisos propios de Codex/Claude ni conceden operaciones sobre infraestructura.
+AUTO ejecuta un trabajo concreto autorizado, por ejemplo: "Usá AUTO para responder este SR con estas comprobaciones y adjuntar el diagnóstico". Ejecuta las acciones autorizadas sin otro OK por cada envío. Desde 0.9.0 el primer uso de una selección inequívoca del catálogo respeta AUTO, sin otro OK. Cerrar un SR sigue requiriendo aprobación manual del borrador exacto, incluso en AUTO. Cada tarea nueva comienza en AUTO, salvo una preferencia MANUAL vigente. Estos modos no modifican los permisos propios de Codex/Claude ni conceden operaciones sobre infraestructura.
 
 En ambos modos, los datos fundamentales faltantes se preguntan. No se inventan identificadores, resultados, impacto de negocio, entorno, clasificación ni compromisos de atención. Los detalles de presentación pueden resolverse con una opción razonable. [Detalle de modos e información requerida](docs/modos.md).
 
@@ -86,6 +86,6 @@ Gestionar tickets requiere permisos IAM de tickets más los privilegios del grup
 
 ## Operación y mantenimiento
 
-El helper conserva respuestas y recibos de escritura en el evidence-dir elegido. Las escrituras necesitan `--execute` y coincidencia de tenancy. MANUAL requiere además el `--approval-digest` del borrador aprobado; el asistente lo pasa solo después del OK real. El digest detecta cambios y no demuestra por sí solo consentimiento humano. AUTO se pasa explícitamente como `--mode AUTO`. No reintenta automáticamente escrituras inciertas: conciliar antes de repetir. Los recibos locales no sustituyen un registro compartido en Functions. Cerrar no elimina el SR; no se identificó una operación pública de borrado.
+El helper conserva respuestas y recibos de escritura en el evidence-dir elegido. Las escrituras necesitan `--execute` y coincidencia de tenancy. MANUAL requiere además el `--approval-digest` del borrador aprobado; el asistente lo pasa solo después del OK real. El digest detecta cambios y no demuestra por sí solo consentimiento humano. AUTO es el valor por defecto; `--mode AUTO` también puede indicarse explícitamente. No reintenta automáticamente escrituras inciertas: conciliar antes de repetir. Los recibos locales no sustituyen un registro compartido en Functions. Cerrar no elimina el SR; no se identificó una operación pública de borrado.
 
 Las notas nuevas preservan estructura mediante HTML escapado; se verificó su renderizado en My Oracle Support. El API no reescribe comentarios anteriores. Las claves y la configuración OCI permanecen fuera del repositorio. SDK/CLI y comportamiento del portal pueden evolucionar; revisar referencias y validar en el entorno del cliente.

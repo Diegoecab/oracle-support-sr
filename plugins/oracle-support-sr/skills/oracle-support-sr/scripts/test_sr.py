@@ -18,6 +18,17 @@ REQUEST = {'compartmentId': TENANCY, 'problemType': 'TECH', 'userGroupId': 'fixt
 
 
 class SafetyTests(unittest.TestCase):
+    def test_default_auto_still_requires_manual_approval_for_closure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _ = self.write_args(folder, 'close')
+            preview = self.draft(args)
+            self.assertEqual(preview['requested_mode'], 'AUTO')
+            self.assertEqual(preview['mode'], 'MANUAL')
+            self.assertEqual(preview['mandatory_review_reason'], 'CASE_CLOSURE')
+            with patch.object(sr, 'Support', side_effect=AssertionError('Closure must wait')):
+                with self.assertRaisesRegex(ValueError, 'CASE_CLOSURE'):
+                    sr.main(args + ['--execute'])
+
     def test_raw_response_never_applies_to_writes_or_cli(self):
         for operation in ('comment', 'close', 'attach', 'create'):
             with tempfile.TemporaryDirectory() as folder:
@@ -200,6 +211,7 @@ class SafetyTests(unittest.TestCase):
     def test_routing_test_is_an_offline_candidate_draft(self):
         with tempfile.TemporaryDirectory() as folder:
             args, request, _, _, _ = self.routing_test_args(folder)
+            args = ['--mode', 'MANUAL'] + args
             with patch.object(sr, 'Support', side_effect=AssertionError('Offline test draft')):
                 preview = self.draft(args)
             self.assertTrue(preview['approval_required'])
@@ -210,6 +222,7 @@ class SafetyTests(unittest.TestCase):
     def test_routing_test_manual_approval_is_required_before_credentials(self):
         with tempfile.TemporaryDirectory() as folder:
             args, _, _, _, _ = self.routing_test_args(folder)
+            args = ['--mode', 'MANUAL'] + args
             with patch.object(sr, 'Support', side_effect=AssertionError('Unapproved test write')):
                 with self.assertRaisesRegex(ValueError, 'MANUAL requires user approval'):
                     sr.main(args+['--execute'])
@@ -217,6 +230,7 @@ class SafetyTests(unittest.TestCase):
     def test_changed_test_plan_invalidates_manual_approval(self):
         with tempfile.TemporaryDirectory() as folder:
             args, _, plan, _, path = self.routing_test_args(folder)
+            args = ['--mode', 'MANUAL'] + args
             preview = self.draft(args)
             plan['test_id'] = 'fixture-routing-002'
             path.write_text(json.dumps(plan), encoding='utf-8')
@@ -396,10 +410,11 @@ class SafetyTests(unittest.TestCase):
             args += ['--key', 'fixture-key', '--file' if operation == 'attach' else '--text-file', str(path)]
         return args, path
 
-    def test_manual_default_blocks_every_unapproved_write_before_credentials(self):
+    def test_explicit_manual_blocks_every_unapproved_write_before_credentials(self):
         for operation in ('create', 'comment', 'attach', 'close'):
             with self.subTest(operation=operation), tempfile.TemporaryDirectory() as folder:
                 args, _ = self.write_args(folder, operation)
+                args = ['--mode', 'MANUAL'] + args
                 with patch.object(sr, 'Support', side_effect=AssertionError('No credentials before approval')):
                     with self.assertRaisesRegex(ValueError, 'MANUAL requires user approval'):
                         sr.main(args + ['--execute'])
@@ -408,6 +423,7 @@ class SafetyTests(unittest.TestCase):
     def test_approval_is_bound_to_payload_target_profile_and_region(self):
         with tempfile.TemporaryDirectory() as folder:
             args, path = self.write_args(folder)
+            args = ['--mode', 'MANUAL'] + args
             approved = self.draft(args)['approval_digest']
             changed = []
             for flag, value in (('--key', 'different-sr'), ('--profile', 'other-profile')):
@@ -427,6 +443,7 @@ class SafetyTests(unittest.TestCase):
     def test_manual_exact_approval_allows_only_that_write(self):
         with tempfile.TemporaryDirectory() as folder:
             args, _ = self.write_args(folder)
+            args = ['--mode', 'MANUAL'] + args
             preview = self.draft(args)
             fake = MagicMock(tenancy=TENANCY, region='fixture-region')
             fake.oci = SimpleNamespace(__version__='fixture')
@@ -445,14 +462,15 @@ class SafetyTests(unittest.TestCase):
             self.assertEqual(result['state'], 'draft_only')
             self.assertEqual(result['mode'], 'AUTO')
 
-    def test_auto_executes_a_scoped_note_without_manual_digest(self):
+    def test_default_auto_executes_a_scoped_note_without_manual_digest(self):
         with tempfile.TemporaryDirectory() as folder:
             args, _ = self.write_args(folder)
             fake = MagicMock(tenancy=TENANCY, region='fixture-region')
             fake.oci = SimpleNamespace(__version__='fixture')
             fake.call.return_value = {'status': 200, 'data': {}}
             with patch.object(sr, 'Support', return_value=fake):
-                result = self.draft(['--mode', 'AUTO'] + args + ['--execute'])
+                result = self.draft(args + ['--execute'])
+            self.assertEqual(result['execution_mode'], 'AUTO')
             self.assertEqual(result['approval']['policy'], 'SCOPED_AUTO')
             self.assertEqual([call.args[0] for call in fake.call.call_args_list], ['get', 'comment'])
 
@@ -478,6 +496,7 @@ class SafetyTests(unittest.TestCase):
     def test_changed_attachment_requires_new_approval(self):
         with tempfile.TemporaryDirectory() as folder:
             args, path = self.write_args(folder, 'attach')
+            args = ['--mode', 'MANUAL'] + args
             preview = self.draft(args)
             path.write_text('Different evidence', encoding='utf-8')
             with patch.object(sr, 'Support', side_effect=AssertionError('Changed attachment')):
@@ -810,7 +829,7 @@ class LiteralReportTests(unittest.TestCase):
             path.write_text(json.dumps(REQUEST), encoding='utf-8')
             with patch.object(sr, 'Support', side_effect=AssertionError('No credentials needed')):
                 with self.assertRaises(sr.ApprovalRequired) as caught:
-                    sr.main(['--profile', 'FIXTURE', '--evidence-dir', folder,
+                    sr.main(['--mode', 'MANUAL', '--profile', 'FIXTURE', '--evidence-dir', folder,
                              'create', '--request-file', str(path), '--expected-tenancy', TENANCY, '--execute'])
             report = caught.exception.user_report
             self.assertEqual(report['sr_fields']['ticket'], REQUEST['ticket'])
