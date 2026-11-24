@@ -1,6 +1,6 @@
 # Gestión de SRs de ADB Serverless con CLI, SDK y skill
 
-Versión 0.9.17. Revisión: 20/11/2026.
+Versión 0.9.18. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
@@ -194,6 +194,8 @@ Si el equipo todavía genera y descarga los AWR desde el portal y después los c
 | Entregar la evidencia | Usa oracle-support-sr para adjuntar el archivo, publicar la actualización y verificar el resultado. |
 
 El usuario hace el pedido en lenguaje natural. No prepara scripts, elige números de snapshots ni descarga archivos a mano. El flujo requiere Diagnostics & Management configurado; su habilitación y costo adicional se tratan por separado. La recolección permanece fuera de oracle-support-sr y respeta los modos MANUAL y AUTO para publicar en el SR.
+
+**Alternativa sin el cargo de Database Management:** el asistente también puede generar el reporte mediante DBMS_WORKLOAD_REPOSITORY.AWR_REPORT_HTML sobre una conexión SQL autorizada a la ADB y luego adjuntarlo al mismo SR. Requiere conectividad, permisos SQL y derechos de uso adecuados. Ver [cómo funciona y qué necesita](#alternativa-mediante-conexion-sql) y la [documentación oficial de Oracle](https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_WORKLOAD_REPOSITORY.html).
 
 El [ejemplo observado del 24/11/2026](#ejemplo-observado) completó apertura, AWR, adjunto, nota y verificación en 4 min 13 s. Frente a los 30–40 minutos manuales estimados por el usuario, representa un ahorro estimado de 86–89 %. Es una gestión de apertura; el calculador del 83 % modela por separado un SR con cinco interacciones.
 
@@ -482,13 +484,21 @@ El asistente consulta todas las páginas necesarias, conserva la ventana solicit
 
 El [flujo completo de recolección y adjunto](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md) describe los requisitos y la verificación. OCI Monitoring permite complementar el SR con métricas, pero no genera AWR.
 
-## Requisitos de la recolección
+<a id="alternativa-mediante-conexion-sql"></a>
+
+## Alternativa mediante conexión a la base
+
+También se puede generar el AWR con la función DBMS_WORKLOAD_REPOSITORY.AWR_REPORT_HTML, mediante una conexión SQL autorizada a la ADB. Esta vía no requiere habilitar el servicio OCI Database Management avanzado ni genera su cargo adicional; siguen aplicando el consumo normal de ADB, los permisos y los derechos de uso correspondientes. El asistente puede automatizar la consulta, guardar el HTML y entregarlo a la skill para adjuntarlo y actualizar el SR, sin que el usuario prepare archivos SQL.
+
+Ver la [alternativa documentada y sus requisitos](https://github.com/Diegoecab/oracle-support-sr/blob/main/docs/adb-awr-api.md#alternativa-mediante-conexión-a-la-base) y la [referencia oficial de DBMS_WORKLOAD_REPOSITORY](https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_WORKLOAD_REPOSITORY.html). Usa credenciales y conectividad de base de datos, diferentes del perfil IAM de OCI. La recolección permanece fuera de la skill de SRs; el ejemplo de 4 min 13 s corresponde a Database Management.
+
+## Requisitos de la vía Database Management
 
 Diagnostics & Management debe estar habilitado con conexión y credencial de diagnóstico válidas. Las funciones avanzadas tienen costo adicional; habilitarlas no forma parte de una actualización del SR. GetAwrDbReport requiere DBMGMT_MANAGED_DB_READ, con acceso separado a las credenciales o secretos que correspondan y los permisos de descubrimiento necesarios. Oracle exige ADMIN para las funciones avanzadas que lo requieren. No se crean bases, generan snapshots, cambian permisos ni habilitan servicios automáticamente.
 
 Referencias: [GetAwrDbReport por CLI](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/database-management/managed-database/get-awr-db-report.html), [SDK Python](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/database_management/client/oci.database_management.DbManagementClient.html), [configuración de Database Management para ADB](https://docs.oracle.com/en-us/iaas/database-management/doc/enable-database-management-autonomous-databases.html), [matriz de soporte](https://docs.oracle.com/en-us/iaas/database-management/doc/database-management-feature-support-matrix.html) e [IAM](https://docs.oracle.com/en-us/iaas/database-management/doc/policy-details-database-management.html).
 
-Validación pendiente: la API está documentada por Oracle, pero este recorrido aún no se ejecutó con una ADB. La instalación de la skill no despliega un recolector ni habilita servicios.
+El recorrido por Database Management se verificó con una ADB de laboratorio. La instalación de la skill no despliega un recolector ni habilita servicios.
 
 ## MCP como fuente opcional de evidencia
 

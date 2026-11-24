@@ -14,7 +14,17 @@ Obtené el AWR de esta ADB para el período del incidente y adjuntalo al SR.
 
 El asistente reutiliza el perfil OCI, la región, la base, el SR y la ventana temporal del contexto. Si falta un dato fundamental o hay varias bases o casos posibles, pregunta solo por esa información. No inventa el período del incidente ni pide al usuario que busque OCIDs, DBIDs o números de snapshots que pueda recuperar por API.
 
-## Preparación del entorno
+## Alternativa mediante conexión a la base
+
+El AWR también puede generarse con **DBMS_WORKLOAD_REPOSITORY.AWR_REPORT_HTML**, ejecutando una consulta mediante una conexión SQL autorizada a la ADB. **Esta alternativa no requiere habilitar OCI Database Management avanzado y evita el cargo de ese servicio.** Continúan aplicando el consumo normal de la base, la conectividad y los derechos de uso de diagnóstico correspondientes a la modalidad contratada. No se debe extrapolar esta condición a una Enterprise Edition instalada en IaaS u on-premises sin verificar su licencia de Diagnostics Pack.
+
+El asistente puede resolver los identificadores y snapshots retenidos, ejecutar la función para la ventana acordada, guardar las filas del resultado como un único HTML y comprobar base, intervalo y contenido. Después usa oracle-support-sr para adjuntar el archivo, publicar la nota y verificar RECEIVED. El usuario no necesita preparar archivos SQL ni copiar parámetros. Se requieren una conexión de base de datos existente y autorizada y privilegios de lectura y ejecución adecuados; un perfil IAM de OCI por sí solo no concede acceso SQL. No se crean snapshots ni se cambian permisos como parte de la recolección.
+
+La recolección SQL se configura fuera de la skill. El tiempo de 4 min 13 s documentado en el ejemplo corresponde al recorrido por Database Management y no constituye una medición de esta alternativa.
+
+Referencia oficial: [DBMS_WORKLOAD_REPOSITORY: funciones AWR_REPORT_HTML y AWR_REPORT_TEXT](https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_WORKLOAD_REPOSITORY.html). Para los derechos de uso en servicios PaaS bajo BYOL Enterprise Edition, consultar la [FAQ oficial de BYOL](https://www.oracle.com/cloud/bring-your-own-license/faq/).
+
+## Preparación del entorno para Database Management
 
 Antes de usar este flujo, la ADB debe tener **Diagnostics & Management habilitado**, conectividad y una credencial de diagnóstico válida. Oracle exige una credencial ADMIN para las funciones avanzadas de Performance Hub que lo requieren. Las funciones avanzadas tienen costo adicional; su habilitación es una tarea de configuración separada y autorizada, no una acción implícita al solicitar un AWR.
 
@@ -52,7 +62,7 @@ Después del upload, el asistente consulta el SR. Un envío aceptado puede queda
 
 Este flujo reduce la navegación, búsqueda de snapshots, descarga y carga manual del archivo. El usuario hace el pedido y recibe el resultado del recorrido.
 
-El ahorro adicional se mide por separado del 83 % estimativo de la guía: tiempo activo de la persona y tiempo transcurrido hasta confirmar RECEIVED. **Todavía no hay una medición de punta a punta con la API de Database Management.** Los tiempos de generación obtenidos con otro mecanismo no se atribuyen a esta API. El ciclo completo con AWR puede superar los cinco minutos por gestión del escenario de referencia.
+El ahorro adicional se mide por separado del 83 % estimativo de la guía: tiempo activo de la persona y tiempo transcurrido hasta confirmar RECEIVED. El ejemplo del 24/11/2026 registró 4 min 13 s para el flujo completo con Database Management, con el entorno previamente configurado. Los tiempos de generación obtenidos mediante conexión SQL no se atribuyen a esta API. El ciclo completo con AWR puede superar los cinco minutos por gestión del escenario de referencia.
 
 OCI Monitoring puede complementar el caso con métricas, pero no genera AWR. El MCP nativo de ADB puede aportar otros diagnósticos mediante herramientas autorizadas; no es un requisito de este flujo.
 
