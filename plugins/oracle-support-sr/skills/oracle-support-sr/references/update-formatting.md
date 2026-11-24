@@ -24,7 +24,7 @@ Specific investigation or supported remediation requested from Oracle.
 Preview without credentials or a network request:
 
 ```text
-python scripts/sr.py --profile PROFILE --evidence-dir ./evidence comment --key SR_KEY --text-file update.txt --expected-tenancy TENANCY_OCID
+python scripts/run_sr.py --profile PROFILE --evidence-dir ./evidence comment --key SR_KEY --text-file update.txt --expected-tenancy TENANCY_OCID
 ```
 
 The draft JSON contains the actual HTML that would be sent. After the already-authorized submission, re-read the case and verify the expected note and its CUSTOMER author. HTML may be normalized by the portal, so compare visible text if the serialized strings differ. API retrieval proves acceptance and storage; claim visual rendering only after inspecting the portal. `--text-format verbatim` preserves the exact input for an explicitly chosen existing contract; it bypasses the escaping formatter.

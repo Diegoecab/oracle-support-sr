@@ -58,19 +58,19 @@ En AUTO, ajustar solo la extensión del título sin cambiar el sentido no requie
 ## Uso interno
 
 ```text
-python scripts/sr.py --profile MI_PERFIL --mode MANUAL --evidence-dir ./evidencia comment --key SR_KEY --text-file respuesta.txt --expected-tenancy TENANCY_OCID
+python scripts/run_sr.py --profile MI_PERFIL --mode MANUAL --evidence-dir ./evidencia comment --key SR_KEY --text-file respuesta.txt --expected-tenancy TENANCY_OCID
 ```
 
 Tras el OK real al borrador mostrado:
 
 ```text
-python scripts/sr.py --profile MI_PERFIL --mode MANUAL --evidence-dir ./evidencia comment --key SR_KEY --text-file respuesta.txt --expected-tenancy TENANCY_OCID --approval-digest DIGEST_DEL_BORRADOR_APROBADO --execute
+python scripts/run_sr.py --profile MI_PERFIL --mode MANUAL --evidence-dir ./evidencia comment --key SR_KEY --text-file respuesta.txt --expected-tenancy TENANCY_OCID --approval-digest DIGEST_DEL_BORRADOR_APROBADO --execute
 ```
 
 Para un flujo AUTO autorizado:
 
 ```text
-python scripts/sr.py --profile MI_PERFIL --mode AUTO --evidence-dir ./evidencia comment --key SR_KEY --text-file respuesta.txt --expected-tenancy TENANCY_OCID --execute
+python scripts/run_sr.py --profile MI_PERFIL --mode AUTO --evidence-dir ./evidencia comment --key SR_KEY --text-file respuesta.txt --expected-tenancy TENANCY_OCID --execute
 ```
 
 El usuario opera con lenguaje natural; el asistente administra los parámetros internos. Nunca cambiar al API/CLI directo para omitir una aprobación o validación bloqueada.

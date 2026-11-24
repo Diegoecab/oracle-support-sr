@@ -36,9 +36,10 @@ claude plugin marketplace add Diegoecab/oracle-support-sr
 
 En Claude Code 2.1.292 o posterior, el comando de shell también permite registrar e instalar juntos: `claude plugin install oracle-support-sr --marketplace Diegoecab/oracle-support-sr --scope user`. En una sesión, la documentación ofrece `/plugin install oracle-support-sr --marketplace Diegoecab/oracle-support-sr` desde 2.1.275. Estas variantes requieren esas versiones; los comandos separados de arriba fueron los comprobados en el piloto. [Documentación oficial de instalación](https://code.claude.com/docs/en/discover-plugins).
 
-Instalar el plugin no configura la identidad OCI ni otorga permisos. El SDK puede instalarse dentro del entorno Python aprobado con `python -m pip install "oci>=2.177.0,<3"`. No hace falta descargar el repositorio ni ejecutar un instalador Python para registrar el plugin.
+Instalar el plugin no configura la identidad OCI ni otorga permisos. La skill utiliza `python scripts/run_sr.py`: prepara una vez un entorno aislado con OCI SDK 2.177.0, comprueba soporte de adjuntos y lo reutiliza en Codex y Claude. No actualiza el Python global ni OCI CLI. La primera preparaci?n necesita Python con venv/pip y acceso al ?ndice de paquetes. El usuario no tiene que activar un entorno en cada sesi?n.
 
-Abrí una sesión nueva después de instalar. En Codex, invocá la skill desde el plugin instalado o pedí usar oracle-support-sr. En Claude, el nombre de la skill instalada como plugin es `/oracle-support-sr:oracle-support-sr`; una copia standalone utiliza `/oracle-support-sr`. No hace falta un MCP para este piloto. El SDK debe estar en el Python que ejecute el helper: si usás un entorno virtual, iniciá el CLI desde ese entorno o indicá al asistente la ruta del intérprete aprobado.
+Abr? una sesi?n nueva despu?s de instalar. En Codex, invoc? la skill desde el plugin instalado o ped? usar oracle-support-sr. En Claude, el nombre de la skill instalada como plugin es `/oracle-support-sr:oracle-support-sr`; una copia standalone utiliza `/oracle-support-sr`. No hace falta un MCP para este piloto. El asistente puede verificar el entorno sin acceder a OCI con `python scripts/run_sr.py --check-runtime`.
+
 
 ## Primera prueba, sin escrituras
 

@@ -11,6 +11,10 @@ Authoritative references, checked 2026-11-16:
 - [List product taxonomy](https://docs.oracle.com/en-us/iaas/Content/GSG/support/list-incident-resource-types-taxonomy.htm)
 - [Attach a file](https://docs.oracle.com/en-us/iaas/Content/GSG/support/update-incident-add-attachment.htm)
 
+## Runtime selection
+
+Use `python scripts/run_sr.py --check-runtime` before beginning a workflow and the same launcher for all operations. The isolated tested SDK is created once and reused. Installing/updating the plugin alone does not change the `oci` package imported by an arbitrary system Python. The launcher validates upload support before a create-plus-attachment workflow can create a case. Direct `sr.py` writes also reject SDKs lacking required methods before reading credentials. Fix the runtime and continue the existing SR; never recreate it merely to attach a file.
+
 ## Authentication and versions
 
 Use the user's local OCI config and signing key through `oci.config.from_file(profile_name=...)` or `oci --profile ...`. Do not copy keys into a skill or report. `ocid` in support operation parameters is the acting **user** OCID, distinct from tenancy/resource OCIDs. Use the tenancy's home region for support. When the identity belongs to a nondefault identity domain, discover and pass the correct `domainid`; do not invent a domain ID or use a bearer-token workaround.

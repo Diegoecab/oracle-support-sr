@@ -75,7 +75,7 @@ Si el registro tiene `known_mismatch=true` o conserva una comparación de portal
 `test-create` cubre esa validación inicial sin declarar una receta como VERIFIED. Solo se utiliza cuando el usuario solicita expresamente una prueba. El uso habitual de `create` acepta VERIFIED o CATALOG_ONLY según las reglas anteriores.
 
 ```text
-python scripts/sr.py --profile MI_PERFIL --backend sdk --evidence-dir ./evidencia test-create --request-file prueba.json --test-plan-file plan-prueba.json --expected-tenancy TENANCY_OCID
+python scripts/run_sr.py --profile MI_PERFIL --backend sdk --evidence-dir ./evidencia test-create --request-file prueba.json --test-plan-file plan-prueba.json --expected-tenancy TENANCY_OCID
 ```
 
 El primer comando genera un borrador MANUAL, sin red ni credenciales. El envío usa su digest aprobado y `--execute`, como las otras escrituras. El plan debe declarar `schema_version=1`, `purpose=ROUTING_VALIDATION`, `status=CANDIDATE`, `production_use=false`, `max_creations=1`, un `test_id` estable, `tenancy_ocid`, `user_group_id`, `created_at_utc`, `expires_at_utc`, `expected_portal` y una sola entrada `routes` con la ruta completa y sus schemas. Su vigencia máxima es de 24 horas. El request debe ser TECH/LOW, tener título con prefijo `[ROUTING TEST] ` y contener este aviso literal en la descripción:
@@ -93,7 +93,7 @@ El resultado mantiene `persisted_classification=NOT_VERIFIED` y no crea una rece
 El catálogo puede exportarse en formato simple para la skill:
 
 ```text
-python scripts/sr.py --profile MI_PERFIL --evidence-dir ./evidencia taxonomy --catalog-file ./configuracion/catalogo-productos.json
+python scripts/run_sr.py --profile MI_PERFIL --evidence-dir ./evidencia taxonomy --catalog-file ./configuracion/catalogo-productos.json
 ```
 
 El catálogo enriquecido usa `catalog_schema_version=2`. Un archivo de receta conserva schema_version=1, status=VERIFIED, tenancy_ocid, user_group_id, routes y expected_portal. Cada ruta conserva region_key, las claves y etiquetas de la jerarquía exportada, los cuatro metadatos nuevos y, cuando no aplica, subcategory_key/subcategory_label nulos. verification contiene source, observed_at_utc, valid_until_utc y observed_portal.product/category iguales a expected_portal. Las fechas requieren zona horaria. La evidencia debe existir y referirse al contrato usado; esta estructura no otorga validez a una declaración sin evidencia.

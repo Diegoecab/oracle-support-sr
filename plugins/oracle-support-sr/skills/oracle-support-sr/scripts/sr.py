@@ -401,6 +401,9 @@ def model_from_wire(oci, model_name, data):
 class Support:
     def __init__(self, args):
         import oci
+        if args.operation in WRITE_REVIEW_RULES:
+            from runtime_env import require_capabilities
+            require_capabilities(oci)
         self.oci, self.args = oci, args
         self.config = oci.config.from_file(file_location=args.config_file, profile_name=args.profile)
         self.tenancy = self.config['tenancy']

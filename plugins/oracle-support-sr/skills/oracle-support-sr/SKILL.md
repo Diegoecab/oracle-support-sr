@@ -7,6 +7,12 @@ description: Manage OCI Oracle Support service requests through OCI CLI and the 
 
 Use the same skill directory in Codex or Claude Code. Resolve bundled paths relative to this file. The helper needs Python with the official `oci` SDK; the CLI backend also needs `oci` on PATH. No connector, browser session, or agent-specific runtime is required.
 
+## Compatible runtime
+
+Use `python scripts/run_sr.py` instead of invoking `sr.py` with an arbitrary Python. The launcher checks all SR SDK methods, including `put_attachment`, before accessing OCI credentials or starting the requested operation. It creates a persistent isolated environment with the tested OCI SDK 2.177.0 when needed, then reuses it across Codex and Claude. It does not upgrade the system Python or the OCI CLI. Setup needs Python with venv/pip and network access to the package index once; setup failure stops before any SR action. Host permissions remain in effect.
+
+Run `python scripts/run_sr.py --check-runtime` once before a multi-step workflow and reuse the launcher for every step. It reports the selected Python, SDK version and attachment capability without contacting OCI. The default runtime directory is `~/.local/share/oracle-support-sr/runtime` on all platforms; `ORACLE_SUPPORT_SR_RUNTIME` can select an explicit runtime directory. Never silently switch back to an incompatible interpreter. When a case already exists, continue with its actual key after fixing the runtime; do not recreate it. Diagnostic collection stays outside this SR helper.
+
 ## Execution mode and essential facts
 
 **AUTO is the default.** For a concrete user request, execute the authorized SR creation, comments and attachments without asking for an additional per-write OK. An explicit request to create a case, attach a specified diagnostic and publish an update authorizes that sequence; a request to prepare a draft does not authorize submission. Use `--execute` for writes; the helper defaults to AUTO, and explicit `--mode AUTO` is also supported. Stay within the requested account, case, content and files. AUTO does not grant closure, unrelated attachments, infrastructure changes or unlimited management of SRs. Important missing facts still require a focused question before the affected write.
@@ -28,16 +34,16 @@ Diagnostic collection remains outside this SR skill. Use separately authorized r
 
 ## Discover and read
 
-Run `python scripts/sr.py --help` for arguments. Always specify a profile and evidence directory. Use `--backend cli` to exercise CLI or `--backend sdk` for Python SDK.
+Run `python scripts/run_sr.py --help` for arguments. Always specify a profile and evidence directory. Use `--backend cli` to exercise CLI or `--backend sdk` for Python SDK.
 
 ```text
-python scripts/sr.py --profile PROFILE --evidence-dir ./sr-evidence preflight
-python scripts/sr.py --profile PROFILE --evidence-dir ./sr-evidence list
-python scripts/sr.py --profile PROFILE --evidence-dir ./sr-evidence get --key 4-0000000000
-python scripts/sr.py --profile PROFILE --evidence-dir ./sr-evidence taxonomy
+python scripts/run_sr.py --profile PROFILE --evidence-dir ./sr-evidence preflight
+python scripts/run_sr.py --profile PROFILE --evidence-dir ./sr-evidence list
+python scripts/run_sr.py --profile PROFILE --evidence-dir ./sr-evidence get --key 4-0000000000
+python scripts/run_sr.py --profile PROFILE --evidence-dir ./sr-evidence taxonomy
 ```
 
-For a missing response field, use SDK read-only `--raw-response` before the operation to preserve the server's JSON field names and fields absent from SDK models. Example: `python scripts/sr.py --profile PROFILE --raw-response --evidence-dir ./sr-evidence get --key 4-0000000000`. The result declares `data_format=REST_JSON`. This flag is refused for writes and CLI backend. Do not infer values from descriptions/comments as if they were persisted structured fields. The official TechSupportItem response model can represent category/subCategory/issueType; in the reviewed v2 TECH cases the actual raw GetIncident response contained activities only, and raw ListIncidents had an empty incidentResourceType. State that observed scope rather than claiming the API cannot ever return classification.
+For a missing response field, use SDK read-only `--raw-response` before the operation to preserve the server's JSON field names and fields absent from SDK models. Example: `python scripts/run_sr.py --profile PROFILE --raw-response --evidence-dir ./sr-evidence get --key 4-0000000000`. The result declares `data_format=REST_JSON`. This flag is refused for writes and CLI backend. Do not infer values from descriptions/comments as if they were persisted structured fields. The official TechSupportItem response model can represent category/subCategory/issueType; in the reviewed v2 TECH cases the actual raw GetIncident response contained activities only, and raw ListIncidents had an empty incidentResourceType. State that observed scope rather than claiming the API cannot ever return classification.
 
 Validate the actual tenancy and support user before writes. Technical access requires a paid, support-eligible account, registered support identity, and create/update privileges in a My Oracle Cloud Support user group. IAM authentication by itself does not prove support authorization. `ValidateUser` returns groups that permit creation. Prefer an explicitly selected group; if exactly one is available, it is reasonable to use it. Group IDs and CSI values are different identifiers; never infer a CSI from a group's numeric name.
 
@@ -70,7 +76,7 @@ When the user explicitly requests a controlled creation test to establish routin
 For `ticket.resourceList[].region`, resolve the OCI region **key** through Identity `ListRegions` (for example `IAD`); keep the normal region name for the SDK endpoint configuration. A live test rejected `us-ashburn-1` in this body field and accepted the otherwise identical request with `IAD`. Check product and category in the actual case, not only the create response: the tested OpenSearch request echoed the requested subcategory key but displayed a different category in My Oracle Support. Treat that finer classification as unresolved until a supported mapping is verified; see [fields-and-intake.md](references/fields-and-intake.md).
 
 ```text
-python scripts/sr.py --profile PROFILE --evidence-dir ./sr-evidence create --request-file request.json --expected-tenancy TENANCY_OCID
+python scripts/run_sr.py --profile PROFILE --evidence-dir ./sr-evidence create --request-file request.json --expected-tenancy TENANCY_OCID
 ```
 
 This validates and prints the draft locally, including its approval digest. In MANUAL, present that concrete draft, wait for approval, and execute with `--approval-digest APPROVED_DIGEST --execute`. In AUTO within the authorized scope, use `--mode AUTO` and `--execute`. Existing approval of that exact draft remains valid; a changed draft needs review.

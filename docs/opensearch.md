@@ -1,6 +1,6 @@
 # Gestión de SRs de OCI OpenSearch con CLI, SDK y skill
 
-Versión 0.9.13. Revisión: 20/11/2026.
+Versión 0.9.14. Revisión: 20/11/2026.
 
 ## Gestión de SRs mediante API, CLI y SDK
 
